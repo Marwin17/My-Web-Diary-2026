@@ -3,27 +3,26 @@ import Typography from "@mui/material/Typography"
 import Paper from "@mui/material/Paper"
 import { blue } from "@mui/material/colors"
 import { moodList, sampleDiary, type DiaryEntryType } from "./Diary"
+import { useState } from "react"
 
 function DiaryList() {
 
-    const diaryList = sampleDiary
+    const diarylist = sampleDiary
 
     return (
         <>
-        {diaryList.map((entry, index) =>(
-            (
-            <DiaryEntry entry={entry} key={index} />
-            )
-        ))}
+            {diarylist.map((entry, index) => (
+                <DiaryEntry entry={entry} key={index} />
+            ))}
         </>
     )
-
 }
 
-function DiaryEntry(prop: { entry: DiaryEntryType}) {
+function DiaryEntry(prop: { entry: DiaryEntryType }) {
 
     const { entry } = prop
-    
+
+    const [expand, setExpand] = useState(false)
 
     return (
         <Paper elevation={1} sx={{
@@ -43,14 +42,19 @@ function DiaryEntry(prop: { entry: DiaryEntryType}) {
                 <Typography sx={{ textAlign: 'left' }}>
                     {entry.date.toUTCString()}
                 </Typography>
-                <Typography>
+                <Typography onClick={() => setExpand(!expand)}>
                     {entry.title}
                 </Typography>
+                {expand && (
+                    <Typography>
+                        {entry.content}
+                    </Typography>
+                )}
+
             </Box>
         </Paper>
     )
+
 }
 
-
-
-export default DiaryList
+export default DiaryList 
