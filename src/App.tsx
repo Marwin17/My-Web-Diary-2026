@@ -20,7 +20,7 @@ function App() {
     date: new Date()
   }])
   const [time, setTime] = useState(new Date())
-  console.log(text)
+  //console.log(text)
 
   const addEntry = () => {
     console.log(entries)
