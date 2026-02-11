@@ -17,9 +17,9 @@ function DiaryList() {
     )
 }
 
-function DiaryEntry(prop: { entry: DiaryEntryType }) {
-    const { entry } = prop
-    const [expand, setExpand] = useState(false)
+export function DiaryEntry(prop: { entry: DiaryEntryType, show?: Boolean }) {
+    const { entry, show } = prop
+    const [expand, setExpand] = useState(show)
 
    
     const starIcons = "★".repeat(entry.star)

@@ -12,14 +12,32 @@ import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AdbIcon from '@mui/icons-material/Adb';
-import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
-import DiaryList from './diary/DiaryList';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 
+import { Route, Routes, useNavigate } from 'react-router';
+import About from './screens/About';
+import DiaryItems from './screens/DiaryItems';
+import Dashboard from './screens/Dashboard';
+import DiaryAddEdit from './screens/DiaryAddEdit';
 
-const pages = ['Products', 'Pricing', 'Blog'];
+type PageRoute = {
+  page: string,
+  route: string,
+}
+
+const pages: PageRoute[] = [
+  { page: 'Dashboard', route: '/' },
+  { page: 'About', route: '/about' },
+  { page: 'Diary', route: '/diarylist' },
+  { page: 'New', route: '/diaryedit' },
+]
+
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
 function App() {
+
+  const navigate = useNavigate()
+
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
 
@@ -28,6 +46,12 @@ function App() {
   };
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElUser(event.currentTarget);
+  };
+
+  const handleNavMenu = (page: string) => {
+    //alert(page)
+    navigate(page)
+    setAnchorElNav(null);
   };
 
   const handleCloseNavMenu = () => {
@@ -43,7 +67,7 @@ function App() {
       <AppBar position="static">
         <Container maxWidth="xl">
           <Toolbar disableGutters>
-            <LocalLibraryIcon sx={{ display: { xs: 'none', md: 'flex'}, fontSize: '42px', mr: 1 }} />
+            <AutoStoriesIcon sx={{ display: { xs: 'none', md: 'flex' }, fontSize: '36px', mr: 1 }} />
             <Typography
               variant="h6"
               noWrap
@@ -59,7 +83,7 @@ function App() {
                 textDecoration: 'none',
               }}
             >
-              LOGO
+              My Diary
             </Typography>
 
             <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
@@ -90,8 +114,9 @@ function App() {
                 sx={{ display: { xs: 'block', md: 'none' } }}
               >
                 {pages.map((page) => (
-                  <MenuItem key={page} onClick={handleCloseNavMenu}>
-                    <Typography sx={{ textAlign: 'center' }}>{page}</Typography>
+                  <MenuItem key={page.page} onClick={() => handleNavMenu
+                  (page.route)}>
+                    <Typography sx={{ textAlign: 'center' }}>{page.page}</Typography>
                   </MenuItem>
                 ))}
               </Menu>
@@ -118,11 +143,11 @@ function App() {
             <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
               {pages.map((page) => (
                 <Button
-                  key={page}
-                  onClick={handleCloseNavMenu}
+                  key={page.page}
+                  onClick={() => handleNavMenu(page.route)}
                   sx={{ my: 2, color: 'white', display: 'block' }}
                 >
-                  {page}
+                  {page.page}
                 </Button>
               ))}
             </Box>
@@ -158,7 +183,15 @@ function App() {
           </Toolbar>
         </Container>
       </AppBar>
-      <DiaryList />
+
+        <Routes>
+          <Route path='/' element={<Dashboard />} />
+          <Route path='about' element={<About />} />
+          <Route path='diarylist' element={<DiaryItems />} />
+          <Route path='diaryedit' element={<DiaryAddEdit />} />
+        </Routes>
+     
+
     </>
   );
 }
