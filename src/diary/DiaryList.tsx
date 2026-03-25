@@ -4,7 +4,7 @@ import Paper from "@mui/material/Paper"
 import IconButton from '@mui/material/IconButton'
 import EditIcon from '@mui/icons-material/Edit'
 import Tooltip from '@mui/material/Tooltip'
-import { blue, green } from "@mui/material/colors"
+import { blue, green, pink } from "@mui/material/colors"
 import { moodList, sampleDiary, type DiaryEntryType } from "./Diary"
 import { useState } from "react"
 import { useNavigate } from "react-router"
@@ -42,7 +42,7 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
             display: 'flex',
             p: 1,
             m: 1,
-            backgroundColor: green[theme.palette.mode === 'dark' ? 800 : 100],
+            backgroundColor: pink[theme.palette.mode === 'dark' ? 900 : 100],
 
         }}>
 

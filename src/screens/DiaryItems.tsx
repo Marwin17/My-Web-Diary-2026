@@ -10,7 +10,6 @@ function DiaryItems() {
        <Fab color="secondary" aria-label="add" sx={{ 
         position: 'fixed',
         right: '16px',
-        bottom: '16px'
        }}>
             <AddIcon />
           </Fab>
