@@ -20,7 +20,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
-import { supabase } from './supabaseClients';
+
 import type { Session } from '@supabase/supabase-js';
 
 import About from './screens/About';
@@ -28,9 +28,10 @@ import { darkTheme, theme } from './Theme';
 import Dashboard from './screens/Dashboard';
 import DiaryAddEdit from './screens/DiaryAddEdit';
 import DiaryItems from './screens/DiaryItems';
+import Login from './screens/Login';
 import Register from './screens/Register';
 import { Route, Routes, useNavigate } from 'react-router';
-
+import { supabase } from './supabaseClient';
 
 type PageRoute = {
   page: string,
@@ -46,6 +47,10 @@ const pages: PageRoute[] = [
 const settings: PageRoute[] = [
   { page: 'Register', route: '/register' },
   { page: 'Login', route: '/login' },
+]
+const settingsUser: PageRoute[] = [
+  { page: 'Change password', route: '/password' },
+  { page: 'Logout', route: '/logout' },
 ]
 
 export interface UserType {
@@ -96,9 +101,26 @@ function App() {
   };
 
   const handleCloseUserMenu = (page: string) => {
+    setAnchorElUser(null)
+    if (page === '/logout') {
+      logout()
+      return
+    }
     navigate(page)
-    setAnchorElUser(null);
   };
+
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.log(error)
+      }
+      // Handle post-logout logic here, e.g., redirecting the user
+      console.log('User signed out successfully');
+    } catch (error: any) {
+      console.error('Logout error:', error.message);
+    }
+  }
 
   const initUser = () => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
@@ -114,7 +136,7 @@ function App() {
       user.session = session
       user.email = session?.user?.email ?? null
     })
-    testProfiles()
+    //testProfiles()
   }
 
   return (
@@ -228,7 +250,8 @@ function App() {
                 open={Boolean(anchorElUser)}
                 onClose={handleCloseUserMenu}
               >
-                {settings.map((setting) => (
+                <Typography>{user.email}</Typography>
+                {(user.email ? settingsUser : settings).map((setting) => (
                   <MenuItem key={setting.page} onClick={() => handleCloseUserMenu(setting.route)}>
                     <Typography sx={{ textAlign: 'center' }}>{setting.page}</Typography>
                   </MenuItem>
@@ -255,6 +278,7 @@ function App() {
         <Route path='diarylist' element={<DiaryItems />} />
         <Route path='diaryedit/:id?' element={<DiaryAddEdit />} />
         <Route path='register' element={<Register />} />
+        <Route path='login' element={<Login />} />
       </Routes>
     </ThemeProvider>
   );
