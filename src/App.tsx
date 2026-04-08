@@ -20,7 +20,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
-
+import { supabase } from './supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 
 import About from './screens/About';
@@ -31,7 +31,6 @@ import DiaryItems from './screens/DiaryItems';
 import Login from './screens/Login';
 import Register from './screens/Register';
 import { Route, Routes, useNavigate } from 'react-router';
-import { supabase } from './supabaseClient';
 
 type PageRoute = {
   page: string,

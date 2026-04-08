@@ -1,31 +1,59 @@
 import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from "@mui/material"
-import { useNavigate, useParams } from "react-router";
-import { moodList, sampleDiary } from "../diary/Diary";
+import { useLocation, useNavigate, useParams } from "react-router";
+import { moodList, type DiaryEntryType } from "../diary/Diary";
 import { useState } from "react";
 import { format } from "date-fns/format";
+import { supabase } from "../supabaseClient";
+import { user } from "../App";
 
 function DiaryAddEdit() {
 
     const { id } = useParams();
     const navigate = useNavigate()
-    console.log(id)
+    const location = useLocation()
     const [entry, setEntry] = useState(id === undefined ? {
         date: new Date(),
         title: '',
         mood: 0,
         content: '',
         star: 1,
-    } : sampleDiary[parseInt(id)])
+    } : location.state as DiaryEntryType)
+    console.log(id + ' ' + entry?.id)
+    console.log(location.state)
 
-    function save() {
-        const index = id === undefined ? sampleDiary.length : parseInt(id)
-        sampleDiary[index] = entry
-        navigate('/diarylist')
+    async function save() {
+        try {
+            if (entry.id === undefined) {
+                const result = await supabase.from('entries').insert({
+                    created_at: entry.date.toISOString(),
+                    title: entry.title,
+                    content: entry.content,
+                    mood: entry.mood,
+                    star: entry.star,
+                    user_id: user?.session?.user.id ?? '',
+                })//.select()
+                console.log(result)
+            } else {
+                const result = await supabase.from('entries').update({
+                    id: entry.id,
+                    created_at: entry.date.toISOString(),
+                    title: entry.title,
+                    content: entry.content,
+                    mood: entry.mood,
+                    star: entry.star,
+                    user_id: user?.session?.user.id ?? '',
+                }).eq('id', entry.id)
+                console.log(result)
+            }
+            navigate('/diarylist')
+        } catch(error) {
+            console.log(error)
+        }
     }
 
     return (
         <Box sx={{ padding: 1 }}>
-            <Typography variant="h5" component="h5" sx={{ pb: 2, pt: 1 }}>{id === undefined ? 'Add' : 'Edit'} Diary Item Po Ito {id}</Typography>
+            <Typography variant="h4" component="h4" sx={{ pb: 2, pt: 1 }}>{id === undefined ? 'Add' : 'Edit'} Diary Item</Typography>
             <TextField
                 id="date"
                 label="Date/time"
@@ -47,9 +75,7 @@ function DiaryAddEdit() {
                     mr: 0.5,
                     mb: 1.5
                 }}
-
             />
-
             <FormControl>
                 <InputLabel id="mood-label">Mood</InputLabel>
                 <Select
@@ -61,10 +87,9 @@ function DiaryAddEdit() {
                         entry.mood = event.target.value as number
                         setEntry({ ...entry })
                     }}
-                    sx={{ 
+                    sx={{
                         mr: 0.5,
-                        mb: 1.5 
-
+                        mb: 1.5
                     }}
                 >
                     {moodList.map((item, index) => (
@@ -80,7 +105,6 @@ function DiaryAddEdit() {
             <FormControl>
                 <InputLabel id="starlabel">Star</InputLabel>
                 <Select
-
                     labelId="starlabel"
                     id="star"
                     label="Star"
@@ -108,11 +132,11 @@ function DiaryAddEdit() {
                 value={entry.title}
                 onChange={event => setEntry({
                     ...entry, title: event.target.value
-                })} 
+                })}
                 sx={{
-                    mb:3
+                    mb: 1.5
                 }}
-                />
+            />
             <TextField
                 fullWidth
                 id="content"
@@ -123,16 +147,13 @@ function DiaryAddEdit() {
                 value={entry.content}
                 onChange={event => setEntry({
                     ...entry, content: event.target.value
-                })} 
+                })}
                 sx={{
-                    mb:3
+                    mb: 2
                 }}
-                />
-            <Button variant="outlined" onClick={() => navigate('/')}>Cancel</Button>
-            <Button variant="contained" onClick={() => save()} sx={{
-                    ml:3
-                }}>Save</Button>
-
+            />
+            <Button variant="outlined" onClick={() => navigate('/diarylist')}>Cancel</Button>
+            <Button variant="contained" onClick={() => save()} sx={{ ml: 1 }}>Save</Button>
         </Box>
     )
 }

@@ -15,6 +15,7 @@ export type MoodType = {
 }
 
 export type DiaryEntryType = {
+    id?: string,
     date: Date,
     title: string,
     mood: number,

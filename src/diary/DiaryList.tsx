@@ -24,6 +24,7 @@ function DiaryList() {
             if (!error) {
                 const entries = data.map(item => {
                     const entry = {
+                        id: item.id,
                         date: item.created_at ? new Date(item.created_at) : new Date(),
                         title: item.title ?? '',
                         mood: item.mood ?? 1,
@@ -57,7 +58,9 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
     const [expand, setExpand] = useState(show)
 
     function handleEdit(): void {
-        navigate(`/diaryedit/${id}`)
+        navigate(`/diaryedit/${entry.id}`, {
+            state: entry
+        })
     }
 
     const theme = useTheme()
@@ -91,18 +94,7 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
                     </Typography>
                 )}
             </Box>
-            <Typography sx={{
-                fontSize: '24px',
-                pl: 1,
-                alignSelf: 'flex-start',
-                fontWeight: 'bold',
-                // Gradient Logic:
-                background: 'linear-gradient(90deg, rgba(131, 58, 180, 1) 0%, rgba(253, 29, 29, 1) 50%, rgba(252, 176, 69, 1) 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                // Fallback for older browsers
-                display: 'inline-block'
-            }}>
+            <Typography sx={{ fontSize: '24px', color: '#cc9d02' }}>
                 {"★".repeat(entry.star)}
             </Typography>
             <Tooltip title="Edit">
