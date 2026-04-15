@@ -11,37 +11,65 @@ import { useNavigate } from "react-router"
 import { useTheme } from "@mui/material/styles"
 import { supabase } from "../supabaseClient"
 import { user } from "../App"
+import TextField from "@mui/material/TextField"
+import Button from "@mui/material/Button"
 
 function DiaryList() {
 
     const [diaryList, setDiaryList] = useState<DiaryEntryType[]>([])
+    const [filter, setFilter] = useState('')
 
     useEffect(() => {
-        // TODO sort later
-        supabase.from('entries').select().then(({ data, error }) => {
-            console.log(data)
-            console.log(error)
-            if (!error) {
-                const entries = data.map(item => {
-                    const entry = {
-                        id: item.id,
-                        date: item.created_at ? new Date(item.created_at) : new Date(),
-                        title: item.title ?? '',
-                        mood: item.mood ?? 1,
-                        content: item.content ?? '',
-                        star: item.star ?? 1,
-                    }
-                    return entry
-                })
-                setDiaryList(entries)
-            } else {
-                setDiaryList(sampleDiary)
-            }
-        })
+        loadEntries()
     }, [user.email])
+
+    function loadEntries() {
+        supabase.from('entries')
+            .select()
+            .or(`title.ilike.%${filter}%,content.ilike.%${filter}%`)
+            .order('created_at', { ascending: false })
+            .then(({ data, error }) => {
+                console.log(data)
+                console.log(error)
+                if (!error) {
+                    const entries = data.map(item => {
+                        const entry = {
+                            id: item.id,
+                            date: item.created_at ? new Date(item.created_at) : new Date(),
+                            title: item.title ?? '',
+                            mood: item.mood ?? 1,
+                            content: item.content ?? '',
+                            star: item.star ?? 1,
+                        }
+                        return entry
+                    })
+                    setDiaryList(entries)
+                } else {
+                    setDiaryList(sampleDiary)
+                }
+            })
+    }
+
+    function search() {
+        loadEntries()
+    }
 
     return (
         <>
+            <TextField
+                id="filter"
+                label="Search"
+                variant="outlined"
+                size="small"
+                value={filter}
+                onChange={event => setFilter(event.target.value)}
+                sx={{
+                    mt: 1.5,
+                    mb: 0.5,
+                    mx: 1
+                }}
+            />
+            <Button variant="contained" onClick={() => search()} sx={{ mt: 1.7 }}>Search</Button>
             {diaryList.map((entry, index) => (
                 <DiaryEntry entry={entry} id={index} key={index} />
             ))}
@@ -90,7 +118,7 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
                 </Typography>
                 {expand && (
                     <Typography>
-                        {entry.content}
+                        <div dangerouslySetInnerHTML={{ __html: entry.content }}></div>
                     </Typography>
                 )}
             </Box>

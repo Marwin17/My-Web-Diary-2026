@@ -1,10 +1,11 @@
 import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from "@mui/material"
 import { useLocation, useNavigate, useParams } from "react-router";
 import { moodList, type DiaryEntryType } from "../diary/Diary";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { format } from "date-fns/format";
 import { supabase } from "../supabaseClient";
 import { user } from "../App";
+import { Editor } from "@tinymce/tinymce-react";
 
 function DiaryAddEdit() {
 
@@ -20,6 +21,8 @@ function DiaryAddEdit() {
     } : location.state as DiaryEntryType)
     console.log(id + ' ' + entry?.id)
     console.log(location.state)
+
+    const editorRef = useRef(null)
 
     async function save() {
         try {
@@ -46,7 +49,7 @@ function DiaryAddEdit() {
                 console.log(result)
             }
             navigate('/diarylist')
-        } catch(error) {
+        } catch (error) {
             console.log(error)
         }
     }
@@ -137,21 +140,33 @@ function DiaryAddEdit() {
                     mb: 1.5
                 }}
             />
-            <TextField
-                fullWidth
-                id="content"
-                label="Content"
-                variant="outlined"
-                multiline
-                minRows={10}
-                value={entry.content}
-                onChange={event => setEntry({
-                    ...entry, content: event.target.value
-                })}
-                sx={{
-                    mb: 2
-                }}
-            />
+            <Box sx={{ ml: 1 }}>
+                <Editor
+                    tinymceScriptSrc={`/tinymce/tinymce.min.js`}
+                    onInit={(_evt: any, editor: any) => editorRef.current = editor}
+                    value={entry.content}
+                    onEditorChange={(content: string) => setEntry({
+                        ...entry, content: content
+                    })}
+                    init={{
+                        height: 500,
+                        menubar: false,
+                        plugins: [
+                            'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                            'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                            'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount', 'charmap', 'emoticons'
+                        ],
+                        toolbar: 'undo redo fullscreen | bold italic underline cut copy paste | link unlink strikethrough superscript subscript | ' +
+                            'highlight forecolor backcolor removeformat search  | ' +
+                            'align numlist bullist outdent indent image media | ' +
+                            'styles fontsizeinput lineheight | ' +
+                            'table hr charmap emoticons anchor | ' +
+                            'detectverse code preview help',
+                        toolbar_mode: 'sliding',
+                        content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
+                    }}
+                />
+            </Box>
             <Button variant="outlined" onClick={() => navigate('/diarylist')}>Cancel</Button>
             <Button variant="contained" onClick={() => save()} sx={{ ml: 1 }}>Save</Button>
         </Box>
