@@ -13,6 +13,7 @@ import { supabase } from "../supabaseClient"
 import { user } from "../App"
 import TextField from "@mui/material/TextField"
 import Button from "@mui/material/Button"
+import type { PostgrestError } from "@supabase/supabase-js"
 
 function DiaryList() {
 
@@ -24,34 +25,56 @@ function DiaryList() {
     }, [user.email])
 
     function loadEntries() {
-        supabase.from('entries')
-            .select()
-            .or(`title.ilike.%${filter}%,content.ilike.%${filter}%`)
-            .order('created_at', { ascending: false })
-            .then(({ data, error }) => {
-                console.log(data)
-                console.log(error)
-                if (!error) {
-                    const entries = data.map(item => {
-                        const entry = {
-                            id: item.id,
-                            date: item.created_at ? new Date(item.created_at) : new Date(),
-                            title: item.title ?? '',
-                            mood: item.mood ?? 1,
-                            content: item.content ?? '',
-                            star: item.star ?? 1,
-                        }
-                        return entry
-                    })
-                    setDiaryList(entries)
-                } else {
-                    setDiaryList(sampleDiary)
+        if (filter) {
+            supabase.from('entries')
+                .select()
+                .textSearch('search_vector', filter, { type: 'websearch' })
+                .order('created_at', { ascending: false })
+                .limit(20)
+                .then(({ data, error }) => {
+                    processEntries(data, error)
+                })
+        } else {
+            supabase.from('entries')
+                .select()
+                .order('created_at', { ascending: false })
+                .limit(20)
+                .then(({ data, error }) => {
+                    processEntries(data, error)
+                })
+        }
+    }
+
+    function processEntries(data: { content: string | null; created_at: string | null; id: string; mood: number | null; star: number | null; title: string | null; user_id: string }[] | null, error: PostgrestError | null) {
+        console.log(data)
+        console.log(error)
+        if (!error && data) {
+            const entries = data.map(item => {
+                const entry = {
+                    id: item.id,
+                    date: item.created_at ? new Date(item.created_at) : new Date(),
+                    title: item.title ?? '',
+                    mood: item.mood ?? 1,
+                    content: item.content ?? '',
+                    star: item.star ?? 1,
                 }
+                return entry
             })
+            setDiaryList(entries)
+        } else {
+            setDiaryList(sampleDiary)
+        }
     }
 
     function search() {
         loadEntries()
+    }
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'Enter') {
+            loadEntries()
+            event.preventDefault()
+        }
     }
 
     return (
@@ -63,6 +86,7 @@ function DiaryList() {
                 size="small"
                 value={filter}
                 onChange={event => setFilter(event.target.value)}
+                onKeyDown={handleKeyDown}
                 sx={{
                     mt: 1.5,
                     mb: 0.5,

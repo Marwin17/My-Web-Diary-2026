@@ -12,26 +12,27 @@ function Dashboard() {
     const [entry, setEntry] = useState<DiaryEntryType | null>(null)
 
     useEffect(() => {
-        // TODO sort later
-        supabase.from('entries').select('*', { count: 'exact' }).then(({ data, error, count }) => {
-            console.log(data)
-            console.log(error)
-            if (!error) {
-                setCount(count ?? 0)
-                if (count ?? 0 > 0) {
-                    const item = data[0]
-                    console.log(item)
-                    const entry = {
-                        date: item.created_at ? new Date(item.created_at) : new Date(),
-                        title: item.title ?? '',
-                        mood: item.mood ?? 1,
-                        content: item.content ?? '',
-                        star: item.star ?? 1,
+        supabase.from('entries').select('*', { count: 'exact' })
+        .order('created_at', { ascending: false }).limit(1)
+            .then(({ data, error, count }) => {
+                console.log(data)
+                console.log(error)
+                if (!error) {
+                    setCount(count ?? 0)
+                    if (count ?? 0 > 0) {
+                        const item = data[0]
+                        console.log(item)
+                        const entry = {
+                            date: item.created_at ? new Date(item.created_at) : new Date(),
+                            title: item.title ?? '',
+                            mood: item.mood ?? 1,
+                            content: item.content ?? '',
+                            star: item.star ?? 1,
+                        }
+                        setEntry(entry)
                     }
-                    setEntry(entry)
                 }
-            }
-        })
+            })
     }, [user.email])
 
     return (
