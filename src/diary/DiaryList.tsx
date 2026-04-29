@@ -14,11 +14,17 @@ import { user } from "../App"
 import TextField from "@mui/material/TextField"
 import Button from "@mui/material/Button"
 import type { PostgrestError } from "@supabase/supabase-js"
+import FormControl from "@mui/material/FormControl"
+import InputLabel from "@mui/material/InputLabel"
+import Select from "@mui/material/Select"
+import MenuItem from "@mui/material/MenuItem"
+import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 
 function DiaryList() {
 
     const [diaryList, setDiaryList] = useState<DiaryEntryType[]>([])
     const [filter, setFilter] = useState('')
+    const [filterMood, setFilterMood] = useState(-1)
 
     useEffect(() => {
         loadEntries()
@@ -77,8 +83,44 @@ function DiaryList() {
         }
     }
 
+    const moodListExtra = [{
+        mood: -1,
+        text: 'All',
+        icon: <AlternateEmailIcon sx={{ color: '#0099ff', fontSize: 'inherit' }} />,
+    }, ...moodList
+    ]
+
     return (
         <>
+            <FormControl>
+                <InputLabel id="mood-label">Mood</InputLabel>
+                <Select
+                    labelId="mood-label"
+                    id="mood-select"
+                    value={filterMood}
+                    label="Mood"
+                    size="small"
+                    onChange={(event) => {
+                        //entry.mood = event.target.value as number
+                        setFilterMood(event.target.value as number)
+                    }}
+                    sx={{
+                        mx: .5,
+                        mt: 2,
+                        mb: 1
+                    }}
+                >
+                    {moodListExtra.map((item, index) => (
+                        <MenuItem value={item.mood} key={index}>
+                            <Box component='span' sx={{ mt:1, fontSize: '1.6em'
+                             }}>
+                                {moodListExtra[item.mood + 1].icon}
+                            </Box>
+                            <span style={{ paddingLeft: '.5em' }}>{item.text}</span>
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
             <TextField
                 id="filter"
                 label="Search"
@@ -142,7 +184,7 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
                 </Typography>
                 {expand && (
                     <Typography>
-                        <div dangerouslySetInnerHTML={{ __html: entry.content }}></div>
+                        <div dangerouslySetInnerHTML={{ __html: processContent(entry.content) }}></div>
                     </Typography>
                 )}
             </Box>
@@ -156,6 +198,11 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
             </Tooltip>
         </Paper>
     )
+
+    function processContent(text: string): string {
+        // replace [#,#] with something link to maps
+        return text
+    }
 }
 
 export default DiaryList

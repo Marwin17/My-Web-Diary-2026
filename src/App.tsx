@@ -28,7 +28,9 @@ import { darkTheme, theme } from './Theme';
 import Dashboard from './screens/Dashboard';
 import DiaryAddEdit from './screens/DiaryAddEdit';
 import DiaryItems from './screens/DiaryItems';
+
 import Login from './screens/Login';
+import Map from './screens/Maps';
 import Register from './screens/Register';
 import { Route, Routes, useNavigate } from 'react-router';
 
@@ -278,6 +280,8 @@ function App() {
         <Route path='diaryedit/:id?' element={<DiaryAddEdit />} />
         <Route path='register' element={<Register />} />
         <Route path='login' element={<Login />} />
+        <Route path='map/:loc' element={<Map />} />
+
       </Routes>
     </ThemeProvider>
   );
