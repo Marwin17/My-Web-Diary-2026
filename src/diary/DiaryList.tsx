@@ -4,7 +4,7 @@ import Paper from "@mui/material/Paper"
 import IconButton from '@mui/material/IconButton'
 import EditIcon from '@mui/icons-material/Edit'
 import Tooltip from '@mui/material/Tooltip'
-import { blue } from "@mui/material/colors"
+import { blue, green } from "@mui/material/colors"
 import { moodList, sampleDiary, type DiaryEntryType } from "./Diary"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
@@ -31,116 +31,123 @@ function DiaryList() {
     }, [user.email])
 
     function loadEntries() {
+        let query = supabase
+            .from('entries')
+            .select()
+
+        // 🔹 apply text search
         if (filter) {
-            supabase.from('entries')
-                .select()
-                .textSearch('search_vector', filter, { type: 'websearch' })
-                .order('created_at', { ascending: false })
-                .limit(20)
-                .then(({ data, error }) => {
-                    processEntries(data, error)
-                })
-        } else {
-            supabase.from('entries')
-                .select()
-                .order('created_at', { ascending: false })
-                .limit(20)
-                .then(({ data, error }) => {
-                    processEntries(data, error)
-                })
+            query = query.textSearch('search_vector', filter, { type: 'websearch' })
         }
-    }
 
-    function processEntries(data: { content: string | null; created_at: string | null; id: string; mood: number | null; star: number | null; title: string | null; user_id: string }[] | null, error: PostgrestError | null) {
-        console.log(data)
-        console.log(error)
-        if (!error && data) {
-            const entries = data.map(item => {
-                const entry = {
-                    id: item.id,
-                    date: item.created_at ? new Date(item.created_at) : new Date(),
-                    title: item.title ?? '',
-                    mood: item.mood ?? 1,
-                    content: item.content ?? '',
-                    star: item.star ?? 1,
-                }
-                return entry
+        // 🔹 apply mood filter (ONLY if not "All" = -1)
+        if (filterMood !== -1) {
+            query = query.eq('mood', filterMood)
+        }
+
+        query
+            .order('created_at', { ascending: false })
+            .limit(20)
+            .then(({ data, error }) => {
+                processEntries(data, error)
             })
-            setDiaryList(entries)
-        } else {
-            setDiaryList(sampleDiary)
-        }
-    }
+}
 
-    function search() {
+function processEntries(data: { content: string | null; created_at: string | null; id: string; mood: number | null; star: number | null; title: string | null; user_id: string }[] | null, error: PostgrestError | null) {
+    console.log(data)
+    console.log(error)
+    if (!error && data) {
+        const entries = data.map(item => {
+            const entry = {
+                id: item.id,
+                date: item.created_at ? new Date(item.created_at) : new Date(),
+                title: item.title ?? '',
+                mood: item.mood ?? 1,
+                content: item.content ?? '',
+                star: item.star ?? 1,
+            }
+            return entry
+        })
+        setDiaryList(entries)
+    } else {
+        setDiaryList(sampleDiary)
+    }
+}
+
+function search() {
+    loadEntries()
+}
+
+const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter') {
         loadEntries()
+        event.preventDefault()
     }
+}
 
-    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-        if (event.key === 'Enter') {
-            loadEntries()
-            event.preventDefault()
-        }
-    }
+const moodListExtra = [{
+    mood: -1,
+    text: 'All',
+    icon: <AlternateEmailIcon sx={{ color: '#0099ff', fontSize: 'inherit' }} />,
+}, ...moodList
+]
 
-    const moodListExtra = [{
-        mood: -1,
-        text: 'All',
-        icon: <AlternateEmailIcon sx={{ color: '#0099ff', fontSize: 'inherit' }} />,
-    }, ...moodList
-    ]
-
-    return (
-        <>
-            <FormControl>
-                <InputLabel id="mood-label">Mood</InputLabel>
-                <Select
-                    labelId="mood-label"
-                    id="mood-select"
-                    value={filterMood}
-                    label="Mood"
-                    size="small"
-                    onChange={(event) => {
-                        //entry.mood = event.target.value as number
-                        setFilterMood(event.target.value as number)
-                    }}
-                    sx={{
-                        mx: .5,
-                        mt: 2,
-                        mb: 1
-                    }}
-                >
-                    {moodListExtra.map((item, index) => (
-                        <MenuItem value={item.mood} key={index}>
-                            <Box component='span' sx={{ mt:1, fontSize: '1.6em'
-                             }}>
-                                {moodListExtra[item.mood + 1].icon}
-                            </Box>
-                            <span style={{ paddingLeft: '.5em' }}>{item.text}</span>
-                        </MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
-            <TextField
-                id="filter"
-                label="Search"
-                variant="outlined"
-                size="small"
-                value={filter}
-                onChange={event => setFilter(event.target.value)}
-                onKeyDown={handleKeyDown}
-                sx={{
-                    mt: 1.5,
-                    mb: 0.5,
-                    mx: 1
+return (
+    <>
+        <FormControl size="small" sx={{ mx: 0.5, mt: 1.5, minWidth: 100 }}>
+            <InputLabel id="mood-label">Mood</InputLabel>
+            <Select
+                labelId="mood-label"
+                id="mood-select"
+                value={filterMood}
+                label="Mood"
+                onChange={(event) => {
+                    //TODO entry.mood = event.target.value as number
+                    setFilterMood(event.target.value as number)
                 }}
-            />
-            <Button variant="contained" onClick={() => search()} sx={{ mt: 1.7 }}>Search</Button>
-            {diaryList.map((entry, index) => (
-                <DiaryEntry entry={entry} id={index} key={index} />
-            ))}
-        </>
-    )
+                sx={{
+                    height: '40px'
+                }}
+
+            >
+                {moodListExtra.map((item, index) => (
+                    <MenuItem value={item.mood} key={index}>
+                        <Box component='span' sx={{
+                            mt: 1, fontSize: '1.6em'
+                        }}>
+                            {moodListExtra[item.mood + 1].icon}
+                        </Box>
+                        <span style={{ paddingLeft: '.5em' }}>{item.text}</span>
+                    </MenuItem>
+                ))}
+            </Select>
+        </FormControl>
+        <TextField
+            id="filter"
+            label="Search"
+            variant="outlined"
+            size="small"
+            value={filter}
+            onChange={event => setFilter(event.target.value)}
+            onKeyDown={handleKeyDown}
+            sx={{
+                mt: 1.5,
+                mb: 0.5,
+                mx: 1,
+                '& .MuiInputBase-root': { height: '40px' }
+            }}
+        />
+        <Button variant="contained" onClick={() => search()}
+            sx={{
+                mt: 1.5,
+                height: '40px',
+                boxShadow: 'none'
+            }}>Search</Button>
+        {diaryList.map((entry, index) => (
+            <DiaryEntry entry={entry} id={index} key={index} />
+        ))}
+    </>
+)
 }
 
 export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boolean }) {
@@ -164,7 +171,7 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
             display: 'flex',
             p: 1,
             m: 1,
-            backgroundColor: blue[theme.palette.mode === 'dark' ? 800 : 100],
+            backgroundColor: green[theme.palette.mode === 'dark' ? 800 : 100],
         }}>
 
             <Typography sx={{ fontSize: '48px' }}>

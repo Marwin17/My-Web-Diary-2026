@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useEffect } from 'react';
 
-import AdbIcon from '@mui/icons-material/Adb';
+import Diversity1Icon from '@mui/icons-material/Diversity1';
 import Avatar from '@mui/material/Avatar';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -33,6 +33,11 @@ import Login from './screens/Login';
 import Map from './screens/Maps';
 import Register from './screens/Register';
 import { Route, Routes, useNavigate } from 'react-router';
+import Drawer from '@mui/material/Drawer';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemText from '@mui/material/ListItemText';
 
 type PageRoute = {
   page: string,
@@ -140,134 +145,156 @@ function App() {
     //testProfiles()
   }
 
+  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
+
+  const [openDrawer, setOpenDrawer] = React.useState(false);
+
+  const handleSearch = async (text: string) => {
+    if (!text.trim()) {
+      return;
+    }
+
+    try {
+      const { data, error } = await (supabase as any).rpc('search_entries', {
+        search_query: text
+      });
+
+      if (error) throw error;
+
+      console.log("Found results with root word matches:", data);
+      // update your diary state with 'data' here
+    } catch (error) {
+      // FIX: Check if error is an Error object
+      if (error instanceof Error) {
+        console.error("Search failed:", error.message);
+      } else {
+        console.error("An unknown search error occurred:", error);
+      }
+    }
+  };
+
   return (
     <ThemeProvider theme={dark ? darkTheme : theme}>
       <CssBaseline />
       <AppBar position="static">
+        <Drawer
+          anchor="left"
+          open={openDrawer}
+          onClose={() => setOpenDrawer(false)}
+        >
+          <Box sx={{ width: 250 }} role="presentation">
+            <List>
+              {pages.map((page) => (
+                <ListItem key={page.page} disablePadding>
+                  <ListItemButton
+                    onClick={() => {
+                      handleNavMenu(page.route);
+                      setOpenDrawer(false);
+                    }}
+                  >
+                    <ListItemText primary={page.page} />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        </Drawer>
         <Container maxWidth="xl">
-          <Toolbar disableGutters>
-            <EditCalendarIcon sx={{ display: { xs: 'none', md: 'flex', fontSize: '36px' }, mr: 1 }} />
-            <Typography
-              variant="h6"
-              noWrap
-              component="a"
-              href="#app-bar-with-responsive-menu"
-              sx={{
-                mr: 2,
-                display: { xs: 'none', md: 'flex' },
-                fontFamily: 'monospace',
-                fontWeight: 700,
-                letterSpacing: '.3rem',
-                color: 'inherit',
-                textDecoration: 'none',
-              }}
-            >
-              My Diary
-            </Typography>
+          <Toolbar disableGutters sx={{ display: 'flex', justifyContent: 'space-between' }}>
 
-            <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
+            {/* LEFT SECTION: Just the Hamburger Menu */}
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
               <IconButton
                 size="large"
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleOpenNavMenu}
                 color="inherit"
+                onClick={() => setOpenDrawer(true)}
+                sx={{ mr: 1 }}
               >
                 <MenuIcon />
               </IconButton>
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorElNav}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'left',
+            </Box>
+
+            {/* CENTER SECTION: Icon and Title together */}
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexGrow: 2
+            }}>
+              <Diversity1Icon sx={{ mr: 1, fontSize: { xs: '24px', md: '30px' } }} />
+              <Typography
+                variant="h6"
+                noWrap
+                sx={{
+                  fontFamily: 'monospace',
+                  fontWeight: 700,
+                  letterSpacing: { xs: '.1rem', md: '.3rem' },
+                  fontSize: { xs: '1.1rem', md: '1.5rem' },
+                  color: 'inherit',
+                  textDecoration: 'none',
                 }}
-                keepMounted
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'left',
-                }}
-                open={Boolean(anchorElNav)}
-                onClose={handleCloseNavMenu}
-                sx={{ display: { xs: 'block', md: 'none' } }}
               >
-                {pages.map((page) => (
-                  <MenuItem key={page.page} onClick={() => handleNavMenu(page.route)}>
-                    <Typography sx={{ textAlign: 'center' }}>{page.page}</Typography>
-                  </MenuItem>
-                ))}
-              </Menu>
+                Love Diary
+              </Typography>
             </Box>
-            <AdbIcon sx={{ display: { xs: 'flex', md: 'none' }, mr: 1 }} />
-            <Typography
-              variant="h5"
-              noWrap
-              component="a"
-              href="#app-bar-with-responsive-menu"
-              sx={{
-                mr: 2,
-                display: { xs: 'flex', md: 'none' },
-                flexGrow: 1,
-                fontFamily: 'monospace',
-                fontWeight: 700,
-                letterSpacing: '.3rem',
-                color: 'inherit',
-                textDecoration: 'none',
-              }}
-            >
-              LOGO
-            </Typography>
-            <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
-              {pages.map((page) => (
-                <Button
-                  key={page.page}
-                  onClick={() => handleNavMenu(page.route)}
-                  sx={{ my: 2, color: 'white', display: 'block' }}
-                >
-                  {page.page}
-                </Button>
-              ))}
-            </Box>
-            <Box sx={{ flexGrow: 0 }}>
+
+            {/* RIGHT SECTION: Avatar and Menu Logic */}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flex: 1 }}>
               <Tooltip title="Open settings">
                 <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                  <Avatar alt="Remy Sharp" src="/static/images/avatar/2.jpg" />
+                  <Avatar src={avatarUrl || "/static/images/avatar/2.jpg"} />
                 </IconButton>
               </Tooltip>
+
               <Menu
                 sx={{ mt: '45px' }}
                 id="menu-appbar"
                 anchorEl={anchorElUser}
-                anchorOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
                 keepMounted
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                 open={Boolean(anchorElUser)}
-                onClose={handleCloseUserMenu}
+                onClose={() => setAnchorElUser(null)}
               >
-                <Typography>{user.email}</Typography>
+                <Typography sx={{ p: 2, color: 'gray', fontSize: '0.8rem' }}>{user.email}</Typography>
+
+                <MenuItem component="label">
+                  <Typography sx={{ textAlign: 'center' }}>Change Profile</Typography>
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        const imageUrl = URL.createObjectURL(file);
+                        setAvatarUrl(imageUrl);
+                      }
+                      setAnchorElUser(null);
+                    }}
+                  />
+                </MenuItem>
+
                 {(user.email ? settingsUser : settings).map((setting) => (
                   <MenuItem key={setting.page} onClick={() => handleCloseUserMenu(setting.route)}>
                     <Typography sx={{ textAlign: 'center' }}>{setting.page}</Typography>
                   </MenuItem>
                 ))}
-                <FormControlLabel
-                  control={
-                    <Switch checked={dark} onChange={() => {
-                      setDark(!dark)
-                      setAnchorElUser(null)
-                    }} />
-                  }
-                  sx={{ ml: 1 }}
-                  label="Dark mode"
-                  labelPlacement='end'
-                />
+
+                <Box sx={{ px: 2, py: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={dark}
+                        onChange={() => {
+                          setDark(!dark);
+                          setAnchorElUser(null);
+                        }}
+                      />
+                    }
+                    label="Dark mode"
+                  />
+                </Box>
               </Menu>
             </Box>
           </Toolbar>
