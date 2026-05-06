@@ -28,45 +28,49 @@ function DiaryList() {
 
     useEffect(() => {
         loadEntries()
-    }, [user.email])
+    }, [user.email, filterMood])
 
     function loadEntries() {
+        let query = supabase
+            .from('entries')
+            .select()
+
+        // 🔍 Apply text search if exists
         if (filter) {
-            supabase.from('entries')
-                .select()
-                .textSearch('search_vector', filter, { type: 'websearch' })
-                .order('created_at', { ascending: false })
-                .limit(20)
-                .then(({ data, error }) => {
-                    processEntries(data, error)
-                })
-        } else {
-            supabase.from('entries')
-                .select()
-                .order('created_at', { ascending: false })
-                .limit(20)
-                .then(({ data, error }) => {
-                    processEntries(data, error)
-                })
+            query = query.textSearch('search_vector', filter, { type: 'websearch' })
         }
+
+        // 😊 Apply mood filter ONLY if not "All"
+        if (filterMood !== -1) {
+            query = query.eq('mood', filterMood)
+        }
+
+        query
+            .order('created_at', { ascending: false })
+            .limit(20)
+            .then(({ data, error }) => {
+                processEntries(data, error)
+            })
     }
 
     function processEntries(data: { content: string | null; created_at: string | null; id: string; mood: number | null; star: number | null; title: string | null; user_id: string }[] | null, error: PostgrestError | null) {
         console.log(data)
         console.log(error)
         if (!error && data) {
-            const entries = data.map(item => {
-                const entry = {
-                    id: item.id,
-                    date: item.created_at ? new Date(item.created_at) : new Date(),
-                    title: item.title ?? '',
-                    mood: item.mood ?? 1,
-                    content: item.content ?? '',
-                    star: item.star ?? 1,
-                }
-                return entry
-            })
-            setDiaryList(entries)
+            const entries = data.map(item => ({
+                id: item.id,
+                date: item.created_at ? new Date(item.created_at) : new Date(),
+                title: item.title ?? '',
+                mood: item.mood ?? 1,
+                content: item.content ?? '',
+                star: item.star ?? 1,
+            }))
+
+            const filtered = filterMood === -1
+                ? entries
+                : entries.filter(e => e.mood === filterMood)
+
+            setDiaryList(filtered)
         } else {
             setDiaryList(sampleDiary)
         }
@@ -90,6 +94,7 @@ function DiaryList() {
     }, ...moodList
     ]
 
+
     return (
         <>
             <FormControl>
@@ -101,7 +106,7 @@ function DiaryList() {
                     label="Mood"
                     size="small"
                     onChange={(event) => {
-                        //entry.mood = event.target.value as number
+                        // TODO entry.mood = event.target.value as number
                         setFilterMood(event.target.value as number)
                     }}
                     sx={{
@@ -112,9 +117,8 @@ function DiaryList() {
                 >
                     {moodListExtra.map((item, index) => (
                         <MenuItem value={item.mood} key={index}>
-                            <Box component='span' sx={{ mt:1, fontSize: '1.6em'
-                             }}>
-                                {moodListExtra[item.mood + 1].icon}
+                            <Box component='span' sx={{ mt: 1, fontSize: '1.6em' }}>
+                                {item.icon}
                             </Box>
                             <span style={{ paddingLeft: '.5em' }}>{item.text}</span>
                         </MenuItem>
@@ -200,9 +204,16 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
     )
 
     function processContent(text: string): string {
-        // replace [#,#] with something link to maps
-        return text
+        // Match [lat,lng]
+        const regex = /\[(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\]/g
+
+        return text.replace(regex, (_, lat, _d1, lng) => {
+            const loc = `${lat},${lng},19` // include zoom to match your Map.tsx
+            return `<a href="/map/${loc}" style="color:#1976d2; text-decoration:underline;">
+                    📍 (${lat}, ${lng})
+                </a>`
+        })
     }
 }
 
-export default DiaryList
+    export default DiaryList
