@@ -76,11 +76,16 @@ function testProfiles() {
   })
 }
 
+
+
 function App() {
 
   const navigate = useNavigate()
 
   const [dark, setDark] = React.useState(false)
+
+  // ✅ ADD HERE
+  const [results, setResults] = React.useState<any[]>([]);
 
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
@@ -150,28 +155,38 @@ function App() {
   const [openDrawer, setOpenDrawer] = React.useState(false);
 
   const handleSearch = async (text: string) => {
-    if (!text.trim()) {
-      return;
+  if (!text.trim()) return;
+
+  try {
+    const { data, error } = await (supabase as any).rpc('search_entries', {
+      search_query: text,
+      filters: filters
+    });
+
+    if (error) throw error;
+
+    setResults(data); // ✅ THIS is the important part
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error("Search failed:", error.message);
+    } else {
+      console.error("Unknown error:", error);
     }
+  }
+};
 
-    try {
-      const { data, error } = await (supabase as any).rpc('search_entries', {
-        search_query: text
-      });
-
-      if (error) throw error;
-
-      console.log("Found results with root word matches:", data);
-      // update your diary state with 'data' here
-    } catch (error) {
-      // FIX: Check if error is an Error object
-      if (error instanceof Error) {
-        console.error("Search failed:", error.message);
-      } else {
-        console.error("An unknown search error occurred:", error);
-      }
-    }
+  const [filters, setFilters] = React.useState<{
+    dateFrom?: string;
+    dateTo?: string;
+    mood?: string;
+  }>({});
+  const updateFilter = (key: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
   };
+  ;
 
   return (
     <ThemeProvider theme={dark ? darkTheme : theme}>
@@ -303,7 +318,7 @@ function App() {
       <Routes>
         <Route path='/' element={<Dashboard />} />
         <Route path='about' element={<About />} />
-        <Route path='diarylist' element={<DiaryItems />} />
+        <Route path='diarylist' element={<DiaryItems results={results} />} />
         <Route path='diaryedit/:id?' element={<DiaryAddEdit />} />
         <Route path='register' element={<Register />} />
         <Route path='login' element={<Login />} />

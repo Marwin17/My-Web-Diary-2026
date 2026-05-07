@@ -1,24 +1,62 @@
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from "@mui/material"
+import { Box, Button, FormControl, IconButton, InputAdornment, InputLabel, MenuItem, Select, TextField, Typography } from "@mui/material"
 import { useLocation, useNavigate, useParams } from "react-router";
 import { moodList, type DiaryEntryType } from "../diary/Diary";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns/format";
 import { supabase } from "../supabaseClient";
 import { user } from "../App";
 import { Editor } from "@tinymce/tinymce-react";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
 
 function DiaryAddEdit() {
 
     const { id } = useParams();
     const navigate = useNavigate()
     const location = useLocation()
-    const [entry, setEntry] = useState(id === undefined ? {
-        date: new Date(),
-        title: '',
-        mood: 0,
-        content: '',
-        star: 1,
-    } : location.state as DiaryEntryType)
+    const isNew = id === undefined
+    const [entry, setEntry] = useState<DiaryEntryType>(
+        isNew
+            ? {
+                date: new Date(),
+                title: '',
+                mood: 0,
+                content: '',
+                star: 1,
+            }
+            : (location.state as DiaryEntryType) ?? {
+                date: new Date(),
+                title: '',
+                mood: 0,
+                content: '',
+                star: 1,
+            }
+    )
+    const draftKey = id ? `diary-draft-${id}` : "diary-draft-new"
+    const [isDraft, setIsDraft] = useState(false)
+    useEffect(() => {
+        const saved = localStorage.getItem(draftKey)
+
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved)
+
+                setEntry({
+                    ...parsed,
+                    date: new Date(parsed.date)
+                })
+            } catch (e) {
+                console.log("Failed to load draft")
+            }
+        }
+    }, [])
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            localStorage.setItem(draftKey, JSON.stringify(entry))
+            setIsDraft(true)
+        }, 500)
+
+        return () => clearTimeout(handler)
+    }, [entry])
     console.log(id + ' ' + entry?.id)
     console.log(location.state)
 
@@ -26,19 +64,19 @@ function DiaryAddEdit() {
 
     async function save() {
         try {
+            let result
+
             if (entry.id === undefined) {
-                const result = await supabase.from('entries').insert({
+                result = await supabase.from('entries').insert({
                     created_at: entry.date.toISOString(),
                     title: entry.title,
                     content: entry.content,
                     mood: entry.mood,
                     star: entry.star,
                     user_id: user?.session?.user.id ?? '',
-                })//.select()
-                console.log(result)
+                })
             } else {
-                const result = await supabase.from('entries').update({
-                    id: entry.id,
+                result = await supabase.from('entries').update({
                     created_at: entry.date.toISOString(),
                     title: entry.title,
                     content: entry.content,
@@ -46,29 +84,75 @@ function DiaryAddEdit() {
                     star: entry.star,
                     user_id: user?.session?.user.id ?? '',
                 }).eq('id', entry.id)
-                console.log(result)
             }
+
+            console.log(result)
+
+            // ✅ clear draft AFTER success
+            localStorage.removeItem(draftKey)
+
             navigate('/diarylist')
+
         } catch (error) {
             console.log(error)
         }
     }
+    function setNowDate() {
+        const now = new Date()
+
+        const updated = new Date(entry.date)
+        updated.setFullYear(now.getFullYear(), now.getMonth(), now.getDate())
+
+        setEntry({
+            ...entry,
+            date: updated
+        })
+    }
+
+    function setNowTime() {
+        const now = new Date()
+
+        const updated = new Date(entry.date)
+        updated.setHours(
+            now.getHours(),
+            now.getMinutes(),
+            now.getSeconds()
+        )
+
+        setEntry({
+            ...entry,
+            date: updated
+        })
+    }
+
+    function setNowDateTime() {
+        setEntry({
+            ...entry,
+            date: new Date()
+        })
+    }
 
     return (
         <Box sx={{ padding: 1 }}>
-            <Typography variant="h4" component="h4" sx={{ pb: 2, pt: 1 }}>{id === undefined ? 'Add' : 'Edit'} Diary Item</Typography>
+            <Typography variant="h4" component="h4" sx={{ pb: 1, pt: 1 }}>{id === undefined ? 'Add' : 'Edit'} Diary Item</Typography>
+            {isDraft && (
+                <Typography sx={{ color: 'gray', fontSize: '12px', mb: 1 }}>
+                    Draft saved automatically
+                </Typography>
+            )}
             <TextField
                 id="date"
                 label="Date/time"
                 variant="outlined"
-                value={format(entry.date, 'yyyy-MM-dd\'T\'HH:mm:ss')}
+                value={format(entry.date, "yyyy-MM-dd'T'HH:mm")}
                 type="datetime-local"
                 onChange={event => {
-                    const date = new Date(event.target.value)
-                    if (isNaN(date.getTime()))
-                        return
+                    const date = new Date(event.target.value + ':00')
+                    if (isNaN(date.getTime())) return
+
                     setEntry({
-                        ...entry, date: date
+                        ...entry,
+                        date: date
                     })
                 }}
                 sx={{
@@ -77,6 +161,19 @@ function DiaryAddEdit() {
                     },
                     mr: 0.5,
                     mb: 1.5
+                }}
+                InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <IconButton
+                                onClick={setNowDateTime}
+                                edge="end"
+                                size="small"
+                            >
+                                <CalendarMonthIcon />
+                            </IconButton>
+                        </InputAdornment>
+                    )
                 }}
             />
             <FormControl>
@@ -140,6 +237,7 @@ function DiaryAddEdit() {
                     mb: 1.5
                 }}
             />
+
             <Box sx={{ ml: 1 }}>
                 <Editor
                     tinymceScriptSrc={`/tinymce/tinymce.min.js`}
@@ -170,6 +268,7 @@ function DiaryAddEdit() {
             <Button variant="outlined" onClick={() => navigate('/diarylist')}>Cancel</Button>
             <Button variant="contained" onClick={() => save()} sx={{ ml: 1 }}>Save</Button>
         </Box>
+
     )
 }
 

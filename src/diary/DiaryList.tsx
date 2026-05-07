@@ -20,16 +20,35 @@ import Select from "@mui/material/Select"
 import MenuItem from "@mui/material/MenuItem"
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 
-function DiaryList() {
+function DiaryList({ results }: { results?: any[] }) {
 
     const [diaryList, setDiaryList] = useState<DiaryEntryType[]>([])
     const [filter, setFilter] = useState('')
     const [filterMood, setFilterMood] = useState(-1)
 
+    // ✅ EXISTING (DB fetch)
     useEffect(() => {
-        loadEntries()
-    }, [user.email])
+        if (!results || results.length === 0) {
+            loadEntries()
+        }
+    }, [user.email, results])
 
+    // ✅ ADD THIS HERE (search results override)
+    useEffect(() => {
+        if (results && results.length > 0) {
+            const entries = results.map(item => ({
+                id: item.id,
+                date: item.created_at ? new Date(item.created_at) : new Date(),
+                title: item.title ?? '',
+                mood: item.mood ?? 1,
+                content: item.content ?? '',
+                star: item.star ?? 1,
+            }))
+            setDiaryList(entries)
+        }
+    }, [results])
+
+    // ⬇️ THEN your functions
     function loadEntries() {
         let query = supabase
             .from('entries')
@@ -51,103 +70,103 @@ function DiaryList() {
             .then(({ data, error }) => {
                 processEntries(data, error)
             })
-}
-
-function processEntries(data: { content: string | null; created_at: string | null; id: string; mood: number | null; star: number | null; title: string | null; user_id: string }[] | null, error: PostgrestError | null) {
-    console.log(data)
-    console.log(error)
-    if (!error && data) {
-        const entries = data.map(item => {
-            const entry = {
-                id: item.id,
-                date: item.created_at ? new Date(item.created_at) : new Date(),
-                title: item.title ?? '',
-                mood: item.mood ?? 1,
-                content: item.content ?? '',
-                star: item.star ?? 1,
-            }
-            return entry
-        })
-        setDiaryList(entries)
-    } else {
-        setDiaryList(sampleDiary)
     }
-}
 
-function search() {
-    loadEntries()
-}
+    function processEntries(data: { content: string | null; created_at: string | null; id: string; mood: number | null; star: number | null; title: string | null; user_id: string }[] | null, error: PostgrestError | null) {
+        console.log(data)
+        console.log(error)
+        if (!error && data) {
+            const entries = data.map(item => {
+                const entry = {
+                    id: item.id,
+                    date: item.created_at ? new Date(item.created_at) : new Date(),
+                    title: item.title ?? '',
+                    mood: item.mood ?? 1,
+                    content: item.content ?? '',
+                    star: item.star ?? 1,
+                }
+                return entry
+            })
+            setDiaryList(entries)
+        } else {
+            setDiaryList(sampleDiary)
+        }
+    }
 
-const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Enter') {
+    function search() {
         loadEntries()
-        event.preventDefault()
     }
-}
 
-const moodListExtra = [{
-    mood: -1,
-    text: 'All',
-    icon: <AlternateEmailIcon sx={{ color: '#0099ff', fontSize: 'inherit' }} />,
-}, ...moodList
-]
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'Enter') {
+            loadEntries()
+            event.preventDefault()
+        }
+    }
 
-return (
-    <>
-        <FormControl size="small" sx={{ mx: 0.5, mt: 1.5, minWidth: 100 }}>
-            <InputLabel id="mood-label">Mood</InputLabel>
-            <Select
-                labelId="mood-label"
-                id="mood-select"
-                value={filterMood}
-                label="Mood"
-                onChange={(event) => {
-                    //TODO entry.mood = event.target.value as number
-                    setFilterMood(event.target.value as number)
-                }}
+    const moodListExtra = [{
+        mood: -1,
+        text: 'All',
+        icon: <AlternateEmailIcon sx={{ color: '#0099ff', fontSize: 'inherit' }} />,
+    }, ...moodList
+    ]
+
+    return (
+        <>
+            <FormControl size="small" sx={{ mx: 0.5, mt: 1.5, minWidth: 100 }}>
+                <InputLabel id="mood-label">Mood</InputLabel>
+                <Select
+                    labelId="mood-label"
+                    id="mood-select"
+                    value={filterMood}
+                    label="Mood"
+                    onChange={(event) => {
+                        //TODO entry.mood = event.target.value as number
+                        setFilterMood(event.target.value as number)
+                    }}
+                    sx={{
+                        height: '40px'
+                    }}
+
+                >
+                    {moodListExtra.map((item, index) => (
+                        <MenuItem value={item.mood} key={index}>
+                            <Box component='span' sx={{
+                                mt: 1, fontSize: '1.6em'
+                            }}>
+                                {moodListExtra[item.mood + 1].icon}
+                            </Box>
+                            <span style={{ paddingLeft: '.5em' }}>{item.text}</span>
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
+            <TextField
+                id="filter"
+                label="Search"
+                variant="outlined"
+                size="small"
+                value={filter}
+                onChange={event => setFilter(event.target.value)}
+                onKeyDown={handleKeyDown}
                 sx={{
-                    height: '40px'
+                    mt: 1.5,
+                    mb: 0.5,
+                    mx: 1,
+                    '& .MuiInputBase-root': { height: '40px' }
                 }}
-
-            >
-                {moodListExtra.map((item, index) => (
-                    <MenuItem value={item.mood} key={index}>
-                        <Box component='span' sx={{
-                            mt: 1, fontSize: '1.6em'
-                        }}>
-                            {moodListExtra[item.mood + 1].icon}
-                        </Box>
-                        <span style={{ paddingLeft: '.5em' }}>{item.text}</span>
-                    </MenuItem>
-                ))}
-            </Select>
-        </FormControl>
-        <TextField
-            id="filter"
-            label="Search"
-            variant="outlined"
-            size="small"
-            value={filter}
-            onChange={event => setFilter(event.target.value)}
-            onKeyDown={handleKeyDown}
-            sx={{
-                mt: 1.5,
-                mb: 0.5,
-                mx: 1,
-                '& .MuiInputBase-root': { height: '40px' }
-            }}
-        />
-        <Button variant="contained" onClick={() => search()}
-            sx={{
-                mt: 1.5,
-                height: '40px',
-                boxShadow: 'none'
-            }}>Search</Button>
-        {diaryList.map((entry, index) => (
-            <DiaryEntry entry={entry} id={index} key={index} />
-        ))}
-    </>
-)
+            />
+            <Button variant="contained" onClick={() => search()}
+                sx={{
+                    mt: 1.5,
+                    height: '40px',
+                    boxShadow: 'none'
+                }}>Search</Button>
+            {diaryList.map((entry, index) => (
+                <DiaryEntry entry={entry} id={index} key={index} />
+            ))}
+        </>
+    )
 }
 
 export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boolean }) {
@@ -184,7 +203,13 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
                 pl: 1,
             }}>
                 <Typography sx={{ textAlign: 'left' }}>
-                    {entry.date.toUTCString()}
+                    {entry.date.toLocaleString('en-PH', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}
                 </Typography>
                 <Typography onClick={() => setExpand(!expand)} >
                     {entry.title}
