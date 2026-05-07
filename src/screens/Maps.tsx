@@ -6,9 +6,9 @@ import { useParams } from "react-router";
 function Map() {
     const { loc } = useParams()
     const parts = loc ? loc.split(',') : []
-    const lat = parts.length > 0 ? parseInt(parts[0]) : 14.6111512
-    const lng = parts.length > 1 ? parseInt(parts[1]) : 120.9749947
-    const zoom = parts.length > 2 ? parseInt(parts[2]) : 19
+    const lat = parts.length > 0 ? parseFloat(parts[0]) : 14.6111512
+    const lng = parts.length > 1 ? parseFloat(parts[1]) : 120.9749947
+    const zoom = parts.length > 2 ? parseFloat(parts[2]) : 19
     const position = { lat: lat, lng: lng }
     return (
         <MapContainer center={position} zoom={zoom} scrollWheelZoom={false}
