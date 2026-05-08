@@ -28,6 +28,7 @@ import { darkTheme, theme } from './Theme';
 import Dashboard from './screens/Dashboard';
 import DiaryAddEdit from './screens/DiaryAddEdit';
 import DiaryItems from './screens/DiaryItems';
+import ChangePassword from './screens/ChangePassword';
 
 import Login from './screens/Login';
 import Map from './screens/Maps';
@@ -60,13 +61,15 @@ const settingsUser: PageRoute[] = [
 ]
 
 export interface UserType {
-  session: Session | null,
+  session: Session | null
   email: string | null
+  avatar: string | null
 }
 
 export const user: UserType = {
   session: null,
   email: null,
+  avatar: null
 }
 
 function testProfiles() {
@@ -75,8 +78,6 @@ function testProfiles() {
     console.log(error)
   })
 }
-
-
 
 function App() {
 
@@ -121,59 +122,88 @@ function App() {
   };
 
   const logout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut()
-      if (error) {
-        console.log(error)
-      }
-      // Handle post-logout logic here, e.g., redirecting the user
-      console.log('User signed out successfully');
-    } catch (error: any) {
-      console.error('Logout error:', error.message);
+    const { error } = await supabase.auth.signOut()
+
+    user.session = null
+    user.email = null
+    user.avatar = null
+
+    setAvatar(null)
+
+    if (error) {
+      console.log(error)
     }
   }
+  type ProfileData = {
+    avatar_url: string | null
+  }
+
+  const loadProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('avatar_url')
+      .eq('id', userId)
+      .single() as {
+        data: ProfileData | null
+        error: any
+      };
+
+    console.log("PROFILE DATA FROM DB:", data);
+    console.log("PROFILE ERROR FROM DB:", error);
+
+    if (data?.avatar_url) {
+      setAvatar(data.avatar_url);
+      user.avatar = data.avatar_url;
+    }
+  };
 
   const initUser = () => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log(session)
-      user.session = session
-      user.email = session?.user?.email ?? null
-    }).catch(error => {
-      console.log(error)
-    })
-    supabase.auth.onAuthStateChange((_event, session) => {
-      console.log(_event)
-      console.log(session)
-      user.session = session
-      user.email = session?.user?.email ?? null
-    })
-    //testProfiles()
-  }
+      console.log("INITIAL SESSION:", session);
+      user.session = session;
+      user.email = session?.user?.email ?? null;
 
-  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
+      if (session?.user?.id) {
+        loadProfile(session.user.id);
+      }
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("AUTH STATE CHANGE:", _event, session);
+      user.session = session;
+      user.email = session?.user?.email ?? null;
+
+      if (session?.user?.id) {
+        loadProfile(session.user.id);
+      } else {
+        setAvatar(null);
+      }
+    });
+  };
+  const [avatar, setAvatar] = React.useState<string | null>(null)
 
   const [openDrawer, setOpenDrawer] = React.useState(false);
 
   const handleSearch = async (text: string) => {
-  if (!text.trim()) return;
+    if (!text.trim()) return;
 
-  try {
-    const { data, error } = await (supabase as any).rpc('search_entries', {
-      search_query: text,
-      filters: filters
-    });
+    try {
+      const { data, error } = await (supabase as any).rpc('search_entries', {
+        search_query: text,
+        filters: filters
+      });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    setResults(data); // ✅ THIS is the important part
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error("Search failed:", error.message);
-    } else {
-      console.error("Unknown error:", error);
+      setResults(data); // ✅ THIS is the important part
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Search failed:", error.message);
+      } else {
+        console.error("Unknown error:", error);
+      }
     }
-  }
-};
+  };
 
   const [filters, setFilters] = React.useState<{
     dateFrom?: string;
@@ -214,10 +244,10 @@ function App() {
             </List>
           </Box>
         </Drawer>
-        <Container maxWidth="xl">
-          <Toolbar disableGutters sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        {/* Container is removed, and we removed disableGutters so it has standard responsive edge spacing */}
+        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', px: { xs: 1, sm: 2 } }}>
 
-            {/* LEFT SECTION: Just the Hamburger Menu */}
+          {/* LEFT SECTION: Just the Hamburger Menu */}
             <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
               <IconButton
                 size="large"
@@ -257,7 +287,10 @@ function App() {
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flex: 1 }}>
               <Tooltip title="Open settings">
                 <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                  <Avatar src={avatarUrl || "/static/images/avatar/2.jpg"} />
+                  <Avatar
+                    key={avatar}
+                    src={avatar || undefined}
+                  />
                 </IconButton>
               </Tooltip>
 
@@ -271,25 +304,79 @@ function App() {
                 open={Boolean(anchorElUser)}
                 onClose={() => setAnchorElUser(null)}
               >
-                <Typography sx={{ p: 2, color: 'gray', fontSize: '0.8rem' }}>{user.email}</Typography>
+                {user.email && (
+                  <Typography sx={{ p: 2, color: 'gray', fontSize: '0.8rem' }}>
+                    {user.email}
+                  </Typography>
+                )}
 
-                <MenuItem component="label">
-                  <Typography sx={{ textAlign: 'center' }}>Change Profile</Typography>
-                  <input
-                    type="file"
-                    hidden
-                    accept="image/*"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) {
-                        const imageUrl = URL.createObjectURL(file);
-                        setAvatarUrl(imageUrl);
-                      }
-                      setAnchorElUser(null);
-                    }}
-                  />
-                </MenuItem>
+                {user.email && (
+                  <MenuItem component="label">
+                    <Typography sx={{ textAlign: 'center' }}>
+                      Change Profile
+                    </Typography>
 
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        const userId = user.session?.user?.id;
+                        if (!file || !userId) return;
+
+                        console.log("STARTING UPLOAD FOR USER:", userId);
+
+                        // 1. CLEANUP: List and delete old files
+                        const { data: existingFiles } = await supabase.storage
+                          .from('avatars')
+                          .list(userId);
+
+                        console.log("EXISTING FILES TO DELETE:", existingFiles);
+
+                        if (existingFiles && existingFiles.length > 0) {
+                          const pathsToDelete = existingFiles.map(f => `${userId}/${f.name}`);
+                          const { error: delError } = await supabase.storage.from('avatars').remove(pathsToDelete);
+                          if (delError) console.log("CLEANUP ERROR:", delError);
+                        }
+
+                        // 2. UPLOAD: Save new file
+                        const filePath = `${userId}/${Date.now()}.png`;
+                        const { error: uploadError } = await supabase.storage
+                          .from('avatars')
+                          .upload(filePath, file);
+
+                        if (uploadError) {
+                          console.log("UPLOAD ERROR:", uploadError);
+                          return;
+                        }
+
+                        const { data: urlData } = supabase.storage
+                          .from('avatars')
+                          .getPublicUrl(filePath);
+
+                        const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+                        console.log("NEW PUBLIC URL:", publicUrl);
+
+                        // 3. UPDATE DB: Upsert profile
+                        const { error: upsertError } = await supabase
+                          .from('profiles')
+                          .upsert({
+                            id: userId,
+                            avatar_url: publicUrl,
+                            updated_at: new Date().toISOString()
+                          });
+
+                        if (upsertError) console.log("UPSERT ERROR:", upsertError);
+
+                        // Update UI state
+                        setAvatar(publicUrl);
+                        user.avatar = publicUrl;
+                        setAnchorElUser(null);
+                      }}
+                    />
+                  </MenuItem>
+                )}
                 {(user.email ? settingsUser : settings).map((setting) => (
                   <MenuItem key={setting.page} onClick={() => handleCloseUserMenu(setting.route)}>
                     <Typography sx={{ textAlign: 'center' }}>{setting.page}</Typography>
@@ -313,7 +400,6 @@ function App() {
               </Menu>
             </Box>
           </Toolbar>
-        </Container>
       </AppBar>
       <Routes>
         <Route path='/' element={<Dashboard />} />
@@ -322,6 +408,7 @@ function App() {
         <Route path='diaryedit/:id?' element={<DiaryAddEdit />} />
         <Route path='register' element={<Register />} />
         <Route path='login' element={<Login />} />
+        <Route path='password' element={<ChangePassword />} />
         <Route path='map/:loc' element={<Map />} />
 
       </Routes>
