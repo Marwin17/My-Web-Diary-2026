@@ -20,6 +20,13 @@ import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import Divider from '@mui/material/Divider'
+import TextField from '@mui/material/TextField'
+
 import { supabase } from './supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 
@@ -64,13 +71,16 @@ export interface UserType {
   session: Session | null
   email: string | null
   avatar: string | null
+  username: string | null
 }
 
 export const user: UserType = {
   session: null,
   email: null,
-  avatar: null
+  avatar: null,
+  username: null
 }
+
 
 function testProfiles() {
   supabase.from('profiles').select().then(({ data, error }) => {
@@ -121,7 +131,11 @@ function App() {
     navigate(page)
   };
 
+  const [username, setUsername] = React.useState('')
+  const [openProfileSettings, setOpenProfileSettings] = React.useState(false)
+
   const logout = async () => {
+
     const { error } = await supabase.auth.signOut()
 
     user.session = null
@@ -132,16 +146,20 @@ function App() {
 
     if (error) {
       console.log(error)
+      return
     }
+
+    navigate('/login')
   }
   type ProfileData = {
     avatar_url: string | null
+    username: string | null
   }
 
   const loadProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('avatar_url')
+      .select('avatar_url, username')
       .eq('id', userId)
       .single() as {
         data: ProfileData | null
@@ -155,28 +173,58 @@ function App() {
       setAvatar(data.avatar_url);
       user.avatar = data.avatar_url;
     }
+
+    if (data?.username) {
+      setUsername(data.username)
+      user.username = data.username
+    }
   };
 
-  const initUser = () => {
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log("INITIAL SESSION:", session);
+  const saveUsername = async () => {
+
+    const userId = user.session?.user?.id
+
+    if (!userId) return
+
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: userId,
+        username: username,
+        updated_at: new Date().toISOString()
+      })
+
+    if (error) {
+      console.log(error)
+      return
+    }
+
+    user.username = username
+    setOpenProfileSettings(false)
+  }
+
+  const initUser = async () => {
+    const { data } = await supabase.auth.getSession();
+
+    const session = data.session;
+
+    user.session = session;
+    user.email = session?.user?.email ?? null;
+
+    if (session?.user?.id) {
+      await loadProfile(session.user.id);
+    }
+
+    supabase.auth.onAuthStateChange(async (_event, session) => {
       user.session = session;
       user.email = session?.user?.email ?? null;
 
       if (session?.user?.id) {
-        loadProfile(session.user.id);
-      }
-    });
-
-    supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("AUTH STATE CHANGE:", _event, session);
-      user.session = session;
-      user.email = session?.user?.email ?? null;
-
-      if (session?.user?.id) {
-        loadProfile(session.user.id);
+        await loadProfile(session.user.id);
       } else {
         setAvatar(null);
+        setUsername('');
+        navigate('/login');
       }
     });
   };
@@ -227,179 +275,327 @@ function App() {
           open={openDrawer}
           onClose={() => setOpenDrawer(false)}
         >
-          <Box sx={{ width: 250 }} role="presentation">
+          <Box
+            sx={{
+              width: 280,
+              height: '100%',
+              background: 'linear-gradient(180deg, #ffe4ec 0%, #fff 100%)',
+              p: 2
+            }}
+            role="presentation"
+          >
+
+            {/* 💖 Header inside drawer */}
+            <Box sx={{ textAlign: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#d81b60' }}>
+                💕 Love Diary
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'gray' }}>
+                Your memories, your emotions
+              </Typography>
+            </Box>
+
             <List>
               {pages.map((page) => (
-                <ListItem key={page.page} disablePadding>
+                <ListItem key={page.page} disablePadding sx={{ mb: 1 }}>
                   <ListItemButton
                     onClick={() => {
                       handleNavMenu(page.route);
                       setOpenDrawer(false);
                     }}
+                    sx={{
+                      borderRadius: 2,
+                      transition: '0.2s',
+                      '&:hover': {
+                        backgroundColor: '#ffd1dc',
+                        transform: 'scale(1.02)',
+                      }
+                    }}
                   >
-                    <ListItemText primary={page.page} />
+                    <ListItemText
+                      primary={
+                        <Typography sx={{ fontWeight: 500 }}>
+                          💌 {page.page}
+                        </Typography>
+                      }
+                    />
                   </ListItemButton>
                 </ListItem>
               ))}
             </List>
+
+            {/* 💖 Footer inside drawer */}
+            <Box sx={{ position: 'absolute', bottom: 20, width: '90%', textAlign: 'center' }}>
+              <Typography variant="caption" sx={{ color: 'gray' }}>
+                Made with ❤️ for your memories
+              </Typography>
+            </Box>
+
           </Box>
         </Drawer>
         {/* Container is removed, and we removed disableGutters so it has standard responsive edge spacing */}
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', px: { xs: 1, sm: 2 } }}>
 
           {/* LEFT SECTION: Just the Hamburger Menu */}
-            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <IconButton
-                size="large"
-                color="inherit"
-                onClick={() => setOpenDrawer(true)}
-                sx={{ mr: 1 }}
-              >
-                <MenuIcon />
-              </IconButton>
-            </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+            <IconButton
+              size="large"
+              color="inherit"
+              onClick={() => setOpenDrawer(true)}
+              sx={{ mr: 1 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Box>
 
-            {/* CENTER SECTION: Icon and Title together */}
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexGrow: 2
-            }}>
-              <Diversity1Icon sx={{ mr: 1, fontSize: { xs: '24px', md: '30px' } }} />
-              <Typography
-                variant="h6"
-                noWrap
+          {/* CENTER SECTION: Icon and Title together */}
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexGrow: 2
+          }}>
+            <Diversity1Icon sx={{ mr: 1, fontSize: { xs: '24px', md: '30px' } }} />
+            <Typography
+              variant="h6"
+              noWrap
+              sx={{
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                letterSpacing: { xs: '.1rem', md: '.3rem' },
+                fontSize: { xs: '1.1rem', md: '1.5rem' },
+                color: 'inherit',
+                textDecoration: 'none',
+              }}
+            >
+              Love Diary
+            </Typography>
+          </Box>
+
+          {/* RIGHT SECTION: Avatar and Menu Logic */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flex: 1 }}>
+
+            <Tooltip title="Open settings">
+              <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
+                <Avatar
+                  key={avatar}
+                  src={avatar || undefined}
+                />
+              </IconButton>
+            </Tooltip>
+
+            <Menu
+              sx={{ mt: '45px' }}
+              anchorEl={anchorElUser}
+              open={Boolean(anchorElUser)}
+              onClose={() => setAnchorElUser(null)}
+              anchorOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+            >
+
+              {/* 💖 PROFILE HEADER */}
+              <Box
                 sx={{
-                  fontFamily: 'monospace',
-                  fontWeight: 700,
-                  letterSpacing: { xs: '.1rem', md: '.3rem' },
-                  fontSize: { xs: '1.1rem', md: '1.5rem' },
-                  color: 'inherit',
-                  textDecoration: 'none',
+                  px: 2,
+                  py: 2,
+                  textAlign: 'center',
+                  background: 'linear-gradient(135deg,#ffe0ec,#fff)'
                 }}
               >
-                Love Diary
-              </Typography>
-            </Box>
 
-            {/* RIGHT SECTION: Avatar and Menu Logic */}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flex: 1 }}>
-              <Tooltip title="Open settings">
-                <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                  <Avatar
-                    key={avatar}
-                    src={avatar || undefined}
-                  />
-                </IconButton>
-              </Tooltip>
+                <Avatar
+                  src={avatar || undefined}
+                  sx={{
+                    width: 70,
+                    height: 70,
+                    mx: 'auto',
+                    mb: 1
+                  }}
+                />
 
-              <Menu
-                sx={{ mt: '45px' }}
-                id="menu-appbar"
-                anchorEl={anchorElUser}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                keepMounted
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                open={Boolean(anchorElUser)}
-                onClose={() => setAnchorElUser(null)}
+                <Typography
+                  sx={{
+                    fontWeight: 'bold',
+                    color: '#d81b60'
+                  }}
+                >
+                  {username || 'Love Diary User'}
+                </Typography>
+
+                <Typography
+                  sx={{
+                    fontSize: '0.8rem',
+                    color: 'gray'
+                  }}
+                >
+                  {user.email}
+                </Typography>
+
+              </Box>
+
+              <Divider />
+
+              {/* 💖 PROFILE SETTINGS */}
+              <MenuItem
+                onClick={() => {
+                  setOpenProfileSettings(true)
+                  setAnchorElUser(null)
+                }}
               >
-                {user.email && (
-                  <Typography sx={{ p: 2, color: 'gray', fontSize: '0.8rem' }}>
-                    {user.email}
-                  </Typography>
-                )}
+                ⚙️ Profile Settings
+              </MenuItem>
 
-                {user.email && (
-                  <MenuItem component="label">
-                    <Typography sx={{ textAlign: 'center' }}>
-                      Change Profile
-                    </Typography>
+              {/* 💖 CHANGE PASSWORD */}
+              <MenuItem
+                onClick={() => handleCloseUserMenu('/password')}
+              >
+                🔒 Change Password
+              </MenuItem>
 
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={async (event) => {
-                        const file = event.target.files?.[0];
-                        const userId = user.session?.user?.id;
-                        if (!file || !userId) return;
+              {/* 💖 LOGOUT */}
+              <MenuItem
+                onClick={() => handleCloseUserMenu('/logout')}
+              >
+                <Typography sx={{ color: '#d32f2f' }}>
+                  🚪 Logout
+                </Typography>
+              </MenuItem>
 
-                        console.log("STARTING UPLOAD FOR USER:", userId);
-
-                        // 1. CLEANUP: List and delete old files
-                        const { data: existingFiles } = await supabase.storage
-                          .from('avatars')
-                          .list(userId);
-
-                        console.log("EXISTING FILES TO DELETE:", existingFiles);
-
-                        if (existingFiles && existingFiles.length > 0) {
-                          const pathsToDelete = existingFiles.map(f => `${userId}/${f.name}`);
-                          const { error: delError } = await supabase.storage.from('avatars').remove(pathsToDelete);
-                          if (delError) console.log("CLEANUP ERROR:", delError);
-                        }
-
-                        // 2. UPLOAD: Save new file
-                        const filePath = `${userId}/${Date.now()}.png`;
-                        const { error: uploadError } = await supabase.storage
-                          .from('avatars')
-                          .upload(filePath, file);
-
-                        if (uploadError) {
-                          console.log("UPLOAD ERROR:", uploadError);
-                          return;
-                        }
-
-                        const { data: urlData } = supabase.storage
-                          .from('avatars')
-                          .getPublicUrl(filePath);
-
-                        const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-                        console.log("NEW PUBLIC URL:", publicUrl);
-
-                        // 3. UPDATE DB: Upsert profile
-                        const { error: upsertError } = await supabase
-                          .from('profiles')
-                          .upsert({
-                            id: userId,
-                            avatar_url: publicUrl,
-                            updated_at: new Date().toISOString()
-                          });
-
-                        if (upsertError) console.log("UPSERT ERROR:", upsertError);
-
-                        // Update UI state
-                        setAvatar(publicUrl);
-                        user.avatar = publicUrl;
-                        setAnchorElUser(null);
-                      }}
+              {/* 💖 DARK MODE */}
+              <Box sx={{ px: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={dark}
+                      onChange={() => setDark(!dark)}
                     />
-                  </MenuItem>
-                )}
-                {(user.email ? settingsUser : settings).map((setting) => (
-                  <MenuItem key={setting.page} onClick={() => handleCloseUserMenu(setting.route)}>
-                    <Typography sx={{ textAlign: 'center' }}>{setting.page}</Typography>
-                  </MenuItem>
-                ))}
+                  }
+                  label="Dark mode"
+                />
+              </Box>
 
-                <Box sx={{ px: 2, py: 1 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={dark}
-                        onChange={() => {
-                          setDark(!dark);
-                          setAnchorElUser(null);
-                        }}
-                      />
-                    }
-                    label="Dark mode"
-                  />
-                </Box>
-              </Menu>
+            </Menu>
+
+          </Box>
+        </Toolbar>
+        <Dialog
+          open={openProfileSettings}
+          onClose={() => setOpenProfileSettings(false)}
+        >
+
+          <DialogTitle>
+            💖 Profile Settings
+          </DialogTitle>
+
+          <DialogContent sx={{ minWidth: 320 }}>
+
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                mb: 2
+              }}
+            >
+
+              <Avatar
+                src={avatar || undefined}
+                sx={{
+                  width: 90,
+                  height: 90,
+                  mb: 1
+                }}
+              />
+
+              <Typography sx={{ fontSize: '0.8rem', color: 'gray' }}>
+                {user.email}
+              </Typography>
+
             </Box>
-          </Toolbar>
+
+            <TextField
+              fullWidth
+              label="Username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              sx={{ mb: 2 }}
+            />
+
+            <Button
+              variant="outlined"
+              component="label"
+              fullWidth
+            >
+              Change Profile Picture
+
+              <input
+                hidden
+                type="file"
+                accept="image/*"
+
+                onChange={async (event) => {
+
+                  const file = event.target.files?.[0]
+                  const userId = user.session?.user?.id
+
+                  if (!file || !userId) return
+
+                  const filePath = `${userId}/${Date.now()}.png`
+
+                  const { error: uploadError } = await supabase.storage
+                    .from('avatars')
+                    .upload(filePath, file)
+
+                  if (uploadError) {
+                    console.log(uploadError)
+                    return
+                  }
+
+                  const { data } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(filePath)
+
+                  const publicUrl = `${data.publicUrl}?t=${Date.now()}`
+
+                  await supabase
+                    .from('profiles')
+                    .upsert({
+                      id: userId,
+                      avatar_url: publicUrl,
+                      username: username
+                    })
+
+                  setAvatar(publicUrl)
+                }}
+              />
+            </Button>
+
+          </DialogContent>
+
+          <DialogActions>
+
+            <Button
+              onClick={() => setOpenProfileSettings(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              variant="contained"
+              onClick={saveUsername}
+            >
+              Save
+            </Button>
+
+          </DialogActions>
+
+        </Dialog>
       </AppBar>
       <Routes>
         <Route path='/' element={<Dashboard />} />
