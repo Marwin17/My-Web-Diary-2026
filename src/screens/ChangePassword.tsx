@@ -1,192 +1,112 @@
-import { Box, Button, TextField, Typography, InputAdornment, IconButton } from "@mui/material"
+import { Box, Button, TextField, Typography } from "@mui/material"
 import { useState } from "react"
 import { supabase } from "../supabaseClient"
-import Visibility from "@mui/icons-material/Visibility"
-import VisibilityOff from "@mui/icons-material/VisibilityOff"
 
 function ChangePassword() {
 
-    const [currentPassword, setCurrentPassword] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [message, setMessage] = useState('')
-    const [loading, setLoading] = useState(false)
-    const [avatarFile, setAvatarFile] = useState<File | null>(null)
-
-    // 👁 visibility states
-    const [showCurrent, setShowCurrent] = useState(false)
-    const [showNew, setShowNew] = useState(false)
-    const [showConfirm, setShowConfirm] = useState(false)
 
     async function changePassword() {
 
-        setMessage('')
-
-        if (!currentPassword || !password || !confirmPassword) {
-            setMessage('All fields are required')
-            return
-        }
-
         if (password !== confirmPassword) {
-            setMessage('New passwords do not match')
+            setMessage("Passwords do not match")
             return
         }
 
-        setLoading(true)
-
-        const { data: userData, error: signInError } =
-            await supabase.auth.signInWithPassword({
-                email: (await supabase.auth.getUser()).data.user?.email!,
-                password: currentPassword
-            })
-
-        if (signInError || !userData.user) {
-            setLoading(false)
-            setMessage('Current password is incorrect')
+        if (password.length < 6) {
+            setMessage("Password must be at least 6 characters")
             return
         }
 
         const { error } = await supabase.auth.updateUser({
-            password: password.trim()
+            password: password
         })
-
-        setLoading(false)
 
         if (error) {
             setMessage(error.message)
-        } else {
-            setMessage('Password updated successfully')
-            setCurrentPassword('')
-            setPassword('')
-            setConfirmPassword('')
-        }
-    }
-
-    async function uploadProfilePicture() {
-
-        if (!avatarFile) {
-            setMessage("Please select an image first")
             return
         }
 
-        setLoading(true)
-
-        const fileExt = avatarFile.name.split('.').pop()
-        const fileName = `${Date.now()}.${fileExt}`
-        const filePath = `avatars/${fileName}`
-
-        const { error: uploadError } = await supabase
-            .storage
-            .from('avatars')
-            .upload(filePath, avatarFile)
-
-        if (uploadError) {
-            setLoading(false)
-            setMessage(uploadError.message)
-            return
-        }
-
-        const { data } = supabase
-            .storage
-            .from('avatars')
-            .getPublicUrl(filePath)
-
-        const publicUrl = data.publicUrl
-
-        const { error: updateError } = await supabase.auth.updateUser({
-            data: { avatar_url: publicUrl }
-        })
-
-        setLoading(false)
-
-        if (updateError) {
-            setMessage(updateError.message)
-        } else {
-            setMessage("Profile picture updated successfully")
-        }
+        setMessage("Password updated successfully ❤️")
+        setPassword('')
+        setConfirmPassword('')
     }
-
-    const toggle = (setter: any, value: boolean) => setter(!value)
-
 
     return (
+        <Box
+            sx={{
+                maxWidth: 400,
+                mx: 'auto',
+                mt: 5,
+                p: 3,
+                borderRadius: 3,
+                boxShadow: 3,
+                backgroundColor: '#fff'
+            }}
+        >
 
-        <Box sx={{ p: 2 }}>
-            <Typography variant="h5" sx={{ mb: 2 }}>
-                Change Password
+            <Typography
+                variant="h5"
+                sx={{
+                    mb: 3,
+                    fontWeight: 'bold',
+                    color: '#d81b60',
+                    textAlign: 'center'
+                }}
+            >
+                🔒 Change Password
             </Typography>
 
-            {/* CURRENT PASSWORD */}
             <TextField
                 fullWidth
-                type={showCurrent ? "text" : "password"}
-                label="Current Password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                sx={{ mb: 2 }}
-                InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                            <IconButton onClick={() => toggle(setShowCurrent, showCurrent)}>
-                                {showCurrent ? <VisibilityOff /> : <Visibility />}
-                            </IconButton>
-                        </InputAdornment>
-                    )
-                }}
-            />
-
-            {/* NEW PASSWORD */}
-            <TextField
-                fullWidth
-                type={showNew ? "text" : "password"}
                 label="New Password"
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 sx={{ mb: 2 }}
-                InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                            <IconButton onClick={() => toggle(setShowNew, showNew)}>
-                                {showNew ? <VisibilityOff /> : <Visibility />}
-                            </IconButton>
-                        </InputAdornment>
-                    )
-                }}
             />
 
-            {/* CONFIRM PASSWORD */}
             <TextField
                 fullWidth
-                type={showConfirm ? "text" : "password"}
-                label="Confirm New Password"
+                label="Confirm Password"
+                type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 sx={{ mb: 2 }}
-                InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                            <IconButton onClick={() => toggle(setShowConfirm, showConfirm)}>
-                                {showConfirm ? <VisibilityOff /> : <Visibility />}
-                            </IconButton>
-                        </InputAdornment>
-                    )
-                }}
             />
 
             <Button
+                fullWidth
                 variant="contained"
                 onClick={changePassword}
-                disabled={loading}
+                sx={{
+                    backgroundColor: '#e91e63',
+                    py: 1.2,
+                    fontWeight: 'bold',
+                    '&:hover': {
+                        backgroundColor: '#d81b60'
+                    }
+                }}
             >
-                {loading ? "Updating..." : "Update Password"}
+                Save New Password
             </Button>
 
-            <Typography sx={{ mt: 2 }}>
-                {message}
-            </Typography>
-            <Box sx={{ mt: 4 }}>
-                
-            </Box>
+            {message && (
+                <Typography
+                    sx={{
+                        mt: 2,
+                        textAlign: 'center',
+                        color: message.includes('success')
+                            ? 'green'
+                            : 'red'
+                    }}
+                >
+                    {message}
+                </Typography>
+            )}
+
         </Box>
     )
 }
