@@ -43,24 +43,34 @@ function DiaryList({ results }: { results?: any[] }) {
 
     // ✅ EXISTING (DB fetch)
     useEffect(() => {
-        if (!results || results.length === 0) {
-            loadEntries()
-        }
-    }, [user.email, results])
+        loadEntries()
+    }, [])
 
     // ✅ ADD THIS HERE (search results override)
     useEffect(() => {
+
+        // search results
         if (results && results.length > 0) {
+
             const entries = results.map(item => ({
                 id: item.id,
-                date: item.created_at ? new Date(item.created_at) : new Date(),
+                date: item.created_at
+                    ? new Date(item.created_at)
+                    : new Date(),
                 title: item.title ?? '',
                 mood: item.mood ?? 1,
                 content: item.content ?? '',
                 star: item.star ?? 1,
             }))
+
             setDiaryList(entries)
         }
+
+        // normal loading
+        else {
+            loadEntries()
+        }
+
     }, [results])
 
     // ⬇️ THEN your functions
@@ -437,14 +447,19 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'space-between'
+                        justifyContent: 'flex-start',
+                        minWidth: 70,
+                        gap: 1
                     }}
                 >
 
                     <Typography
                         sx={{
                             fontSize: '22px',
-                            color: '#ffb300'
+                            color: '#ffb300',
+                            minHeight: 32,
+                            display: 'flex',
+                            alignItems: 'center'
                         }}
                     >
                         {"★".repeat(entry.star)}
@@ -495,6 +510,7 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
                 <DialogContent sx={{ p: 0 }}>
 
                     <Map loc={selectedLocation} />
+
 
                 </DialogContent>
 

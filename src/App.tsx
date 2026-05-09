@@ -451,21 +451,33 @@ function App() {
                 ⚙️ Profile Settings
               </MenuItem>
 
-              {/* 💖 CHANGE PASSWORD */}
-              <MenuItem
-                onClick={() => handleCloseUserMenu('/password')}
-              >
-                🔒 Change Password
-              </MenuItem>
+              {/* 💖 LOGIN IF NOT LOGGED IN */}
+              {!user.session && (
+                <MenuItem
+                  onClick={() => handleCloseUserMenu('/login')}
+                >
+                  💖 Login
+                </MenuItem>
+              )}
 
-              {/* 💖 LOGOUT */}
-              <MenuItem
-                onClick={() => handleCloseUserMenu('/logout')}
-              >
-                <Typography sx={{ color: '#d32f2f' }}>
-                  🚪 Logout
-                </Typography>
-              </MenuItem>
+              {/* 💖 USER OPTIONS */}
+              {user.session && [
+                <MenuItem
+                  key="change-password"
+                  onClick={() => handleCloseUserMenu('/password')}
+                >
+                  🔒 Change Password
+                </MenuItem>,
+
+                <MenuItem
+                  key="logout"
+                  onClick={() => handleCloseUserMenu('/logout')}
+                >
+                  <Typography sx={{ color: '#d32f2f' }}>
+                    🚪 Logout
+                  </Typography>
+                </MenuItem>,
+              ]}
 
               {/* 💖 DARK MODE */}
               <Box sx={{ px: 2 }}>
