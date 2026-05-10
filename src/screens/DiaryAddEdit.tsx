@@ -56,6 +56,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import MyLocationIcon from "@mui/icons-material/MyLocation"
 import FavoriteIcon from "@mui/icons-material/Favorite"
 
+
 function DiaryAddEdit() {
 
     const { id } = useParams()
@@ -68,23 +69,18 @@ function DiaryAddEdit() {
 
     const [openDelete, setOpenDelete] = useState(false)
 
-    const [entry, setEntry] = useState<DiaryEntryType>(
-        isNew
-            ? {
-                date: new Date(),
-                title: '',
-                mood: 0,
-                content: '',
-                star: 1,
-            }
-            : (location.state as DiaryEntryType) ?? {
-                date: new Date(),
-                title: '',
-                mood: 0,
-                content: '',
-                star: 1,
-            }
-    )
+    const state = location.state as DiaryEntryType | undefined
+
+    const [entry, setEntry] = useState<DiaryEntryType>(() => {
+        return {
+            id: state?.id ?? id,   // 🔥 fallback to URL param
+            date: state?.date ? new Date(state.date) : new Date(),
+            title: state?.title ?? '',
+            mood: state?.mood ?? 0,
+            content: state?.content ?? '',
+            star: state?.star ?? 1,
+        }
+    })
 
     const [uploading, setUploading] = useState(false)
 
@@ -139,11 +135,12 @@ function DiaryAddEdit() {
 
         try {
 
-            let result
+            console.log("Saving entry ID:", entry.id)
 
-            if (entry.id === undefined) {
+            if (!entry.id) {
 
-                result = await supabase
+                // ✅ CREATE NEW ENTRY
+                const { data, error } = await supabase
                     .from('entries')
                     .insert({
                         created_at: entry.date.toISOString(),
@@ -153,10 +150,23 @@ function DiaryAddEdit() {
                         star: entry.star,
                         user_id: user?.session?.user.id ?? '',
                     })
+                    .select()
+                    .single()
+
+                if (error) throw error
+
+                // 🔥 SAVE RETURNED ID
+                if (data) {
+                    setEntry(prev => ({
+                        ...prev,
+                        id: data.id
+                    }))
+                }
 
             } else {
 
-                result = await supabase
+                // ✅ UPDATE EXISTING ENTRY
+                const { error } = await supabase
                     .from('entries')
                     .update({
                         created_at: entry.date.toISOString(),
@@ -164,12 +174,11 @@ function DiaryAddEdit() {
                         content: entry.content,
                         mood: entry.mood,
                         star: entry.star,
-                        user_id: user?.session?.user.id ?? '',
                     })
                     .eq('id', entry.id)
-            }
 
-            console.log(result)
+                if (error) throw error
+            }
 
             localStorage.removeItem(draftKey)
 
@@ -241,15 +250,45 @@ function DiaryAddEdit() {
 
             const fileUrl = data.publicUrl
 
+            const isImage =
+                file.type.startsWith('image/')
+
             setEntry({
                 ...entry,
                 content:
                     entry.content +
-                    `<p>
-                        <a href="${fileUrl}" target="_blank">
-                            📎 ${file.name}
-                        </a>
-                    </p>`
+                    (
+                        isImage
+                            ? `
+                <div style="margin-top:10px">
+                    <a href="${fileUrl}" target="_blank">
+                        <img
+                            src="${fileUrl}"
+                            alt="${file.name}"
+                            style="
+                                max-width:100%;
+                                border-radius:12px;
+                                box-shadow:0 2px 10px rgba(0,0,0,0.15)
+                            "
+                        />
+                    </a>
+                </div>
+                `
+                            : `
+                <p>
+                    <a
+                        href="${fileUrl}"
+                        target="_blank"
+                        style="
+                            text-decoration:none;
+                            font-weight:bold;
+                        "
+                    >
+                        📎 Open ${file.name}
+                    </a>
+                </p>
+                `
+                    )
             })
 
         } catch (error) {
@@ -371,13 +410,21 @@ function DiaryAddEdit() {
                                 color="success"
                             />
 
-                            <Tooltip title="Clear draft">
-                                <IconButton
+                            <Tooltip title="Clear All">
+
+                                <Button
                                     size="small"
+                                    color="error"
+                                    startIcon={<DeleteIcon />}
                                     onClick={clearDraft}
+                                    sx={{
+                                        borderRadius: 3,
+                                        textTransform: 'none'
+                                    }}
                                 >
-                                    <DeleteIcon fontSize="small" />
-                                </IconButton>
+                                    Clear All
+                                </Button>
+
                             </Tooltip>
 
                         </Box>
@@ -698,20 +745,26 @@ function DiaryAddEdit() {
                         )}
 
                         {/* CANCEL */}
-                        <Button
-                            variant="outlined"
-                            color="inherit"
-                            startIcon={<ArrowBackIcon />}
-                            onClick={() =>
-                                navigate('/diarylist')
-                            }
-                            sx={{
-                                borderRadius: 3,
-                                px: 3
-                            }}
-                        >
-                            Cancel
-                        </Button>
+                        <Tooltip title="Go Back">
+
+                            <IconButton
+                                onClick={() => navigate('/diarylist')}
+                                sx={{
+                                    border: '1px solid #d1d1d1',
+                                    borderRadius: 3,
+                                    width: 50,
+                                    height: 50,
+                                    backgroundColor: '#fff',
+                                    '&:hover': {
+                                        backgroundColor: '#f5f5f5',
+                                        transform: 'scale(1.05)'
+                                    }
+                                }}
+                            >
+                                <ArrowBackIcon />
+                            </IconButton>
+
+                        </Tooltip>
 
                         {/* SAVE */}
                         <Button
@@ -719,10 +772,18 @@ function DiaryAddEdit() {
                             startIcon={<SaveIcon />}
                             onClick={save}
                             sx={{
-                                borderRadius: 3,
+                                borderRadius: 4,
                                 px: 4,
+                                py: 1.2,
+                                fontWeight: 'bold',
+                                boxShadow: '0 4px 14px rgba(233,30,99,0.35)',
                                 background:
-                                    'linear-gradient(135deg,#e91e63,#ff80ab)'
+                                    'linear-gradient(135deg,#e91e63,#ff80ab)',
+                                '&:hover': {
+                                    background:
+                                        'linear-gradient(135deg,#d81b60,#ff4081)',
+                                    transform: 'translateY(-2px)'
+                                }
                             }}
                         >
                             Save Memory
@@ -738,6 +799,7 @@ function DiaryAddEdit() {
             <Dialog
                 open={openDelete}
                 onClose={() => setOpenDelete(false)}
+                disableRestoreFocus
             >
 
                 <DialogTitle>
@@ -764,9 +826,18 @@ function DiaryAddEdit() {
                         color="error"
                         variant="contained"
                         startIcon={<DeleteIcon />}
-                        onClick={deleteEntry}
+                        onClick={async (event) => {
+
+                            (
+                                event.currentTarget as HTMLButtonElement
+                            ).blur()
+
+                            setOpenDelete(false)
+
+                            await deleteEntry()
+                        }}
                     >
-                        Delete
+                        Delete Entry
                     </Button>
 
                 </DialogActions>

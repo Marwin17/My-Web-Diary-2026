@@ -269,11 +269,37 @@ function App() {
   return (
     <ThemeProvider theme={dark ? darkTheme : theme}>
       <CssBaseline />
-      <AppBar position="static">
+      <AppBar
+        position="fixed"
+        sx={{
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: (theme) => theme.zIndex.drawer + 1
+        }}
+      >
         <Drawer
           anchor="left"
           open={openDrawer}
           onClose={() => setOpenDrawer(false)}
+          ModalProps={{
+            keepMounted: true
+          }}
+          
+          sx={{
+            zIndex: (theme) => theme.zIndex.appBar - 1,
+            '& .MuiDrawer-paper': {
+              zIndex: (theme) => theme.zIndex.appBar - 1,
+              top: {
+                xs: '56px',
+                sm: '64px'
+              },
+              height: {
+                xs: 'calc(100% - 56px)',
+                sm: 'calc(100% - 64px)'
+              }
+            }
+          }}
         >
           <Box
             sx={{
@@ -341,7 +367,7 @@ function App() {
             <IconButton
               size="large"
               color="inherit"
-              onClick={() => setOpenDrawer(true)}
+              onClick={() => setOpenDrawer(!openDrawer)}
               sx={{ mr: 1 }}
             >
               <MenuIcon />
@@ -349,13 +375,28 @@ function App() {
           </Box>
 
           {/* CENTER SECTION: Icon and Title together */}
-          <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexGrow: 2
-          }}>
-            <Diversity1Icon sx={{ mr: 1, fontSize: { xs: '24px', md: '30px' } }} />
+          <Box
+            onClick={() => navigate('/')}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexGrow: 2,
+              cursor: 'pointer',
+              transition: '0.2s',
+              '&:hover': {
+                opacity: 0.8,
+                transform: 'scale(1.02)'
+              }
+            }}
+          >
+            <Diversity1Icon
+              sx={{
+                mr: 1,
+                fontSize: { xs: '24px', md: '30px' }
+              }}
+            />
+
             <Typography
               variant="h6"
               noWrap
@@ -499,6 +540,7 @@ function App() {
         <Dialog
           open={openProfileSettings}
           onClose={() => setOpenProfileSettings(false)}
+          disableRestoreFocus
         >
 
           <DialogTitle>
@@ -609,6 +651,7 @@ function App() {
 
         </Dialog>
       </AppBar>
+      <Toolbar />
       <Routes>
         <Route path='/' element={<Dashboard />} />
         <Route path='about' element={<About />} />

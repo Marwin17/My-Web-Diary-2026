@@ -171,6 +171,7 @@ function DiaryList({ results }: { results?: any[] }) {
             <Dialog
                 open={openDate}
                 onClose={() => setOpenDate(false)}
+                disableRestoreFocus
             >
                 <DialogTitle>Date Filter</DialogTitle>
 
@@ -535,6 +536,9 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
         // ✅ remove html tags
         text = text.replace(/<[^>]*>/g, '')
 
+        // ✅ remove html entities like &nbsp;
+        text = text.replace(/&nbsp;/g, ' ')
+
         const regex = /\[(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\]/g
 
         const elements = []
@@ -550,7 +554,8 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
             if (match.index > lastIndex) {
                 elements.push(
                     <span key={`text-${match.index}`}>
-                        {text.substring(lastIndex, match.index)}
+                        {text.substring(lastIndex, match.index).trimEnd()}
+                        {" "}
                     </span>
                 )
             }
@@ -569,6 +574,7 @@ export function DiaryEntry(prop: { entry: DiaryEntryType, id: number, show?: boo
                         gap: 1,
                         px: 2,
                         py: 1,
+                        ml: 2,
                         mx: 0.5,
                         mt: 1,
                         borderRadius: '999px',

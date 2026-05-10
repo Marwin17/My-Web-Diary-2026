@@ -3,6 +3,9 @@ import { useNavigate } from "react-router";
 import { useState } from "react";
 import { user } from "../App";
 import { supabase } from "../supabaseClient";
+import { IconButton, InputAdornment } from "@mui/material"
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
 function Login() {
 
@@ -16,6 +19,7 @@ function Login() {
     const [entry, setEntry] = useState(emptyEntry)
     const [error, setError] = useState(emptyEntry)
     const [otherError, setOtherError] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
 
     function handleKeyDown(event: React.KeyboardEvent) {
         if (event.key === 'Enter') {
@@ -85,7 +89,7 @@ function Login() {
                 fullWidth
                 id="password"
                 label="Password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 error={error.password.length > 0}
                 helperText={error.password}
                 variant="outlined"
@@ -95,6 +99,20 @@ function Login() {
                     ...entry,
                     password: event.target.value
                 })}
+                slotProps={{
+                    input: {
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    edge="end"
+                                >
+                                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                                </IconButton>
+                            </InputAdornment>
+                        )
+                    }
+                }}
                 sx={{
                     mb: 1.5
                 }}
