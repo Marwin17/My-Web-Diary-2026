@@ -26,7 +26,8 @@ import {
 
 import {
     moodList,
-    type DiaryEntryType
+    type DiaryEntryType,
+    type DiaryAttachment
 } from "../diary/Diary"
 
 import {
@@ -79,9 +80,13 @@ function DiaryAddEdit() {
             mood: state?.mood ?? 0,
             content: state?.content ?? '',
             star: state?.star ?? 1,
+            attachments: state?.attachments ?? []
         }
     })
 
+    const [attachments, setAttachments] = useState<DiaryAttachment[]>(state?.attachments ?? [])
+    const [selectedAttachment, setSelectedAttachment] = useState<DiaryAttachment | null>(null)
+    const [previewOpen, setPreviewOpen] = useState(false)
     const [uploading, setUploading] = useState(false)
 
     const draftKey = id
@@ -149,6 +154,7 @@ function DiaryAddEdit() {
                         mood: entry.mood,
                         star: entry.star,
                         user_id: user?.session?.user.id ?? '',
+                        attachments: entry.attachments ?? []
                     })
                     .select()
                     .single()
@@ -174,6 +180,7 @@ function DiaryAddEdit() {
                         content: entry.content,
                         mood: entry.mood,
                         star: entry.star,
+                        attachments: entry.attachments ?? []
                     })
                     .eq('id', entry.id)
 
@@ -190,11 +197,35 @@ function DiaryAddEdit() {
         }
     }
 
+    async function deleteAttachmentFromStorage(attachmentId: string) {
+        try {
+            const { error } = await supabase
+                .storage
+                .from('Diary_File_Upoad')
+                .remove([attachmentId])
+            
+            if (error) {
+                console.log('Error deleting file:', error)
+                return false
+            }
+            return true
+        } catch (error) {
+            console.log(error)
+            return false
+        }
+    }
+
     async function deleteEntry() {
 
         if (!entry.id) return
 
         try {
+            // Delete all attachments from storage first
+            if (entry.attachments?.length) {
+                for (const attachment of entry.attachments) {
+                    await deleteAttachmentFromStorage(attachment.id)
+                }
+            }
 
             const { error } = await supabase
                 .from('entries')
@@ -253,15 +284,25 @@ function DiaryAddEdit() {
             const isImage =
                 file.type.startsWith('image/')
 
-            setEntry({
-                ...entry,
+            const attachment: DiaryAttachment = {
+                id: filePath,
+                name: file.name,
+                url: fileUrl,
+                type: file.type
+            }
+
+            setAttachments(prev => [attachment, ...prev])
+
+            setEntry(prev => ({
+                ...prev,
+                attachments: [attachment, ...(prev.attachments ?? [])],
                 content:
-                    entry.content +
+                    prev.content +
                     (
                         isImage
                             ? `
                 <div style="margin-top:10px">
-                    <a href="${fileUrl}" target="_blank">
+                    <a href="${fileUrl}" target="_blank" rel="noreferrer">
                         <img
                             src="${fileUrl}"
                             alt="${file.name}"
@@ -279,6 +320,7 @@ function DiaryAddEdit() {
                     <a
                         href="${fileUrl}"
                         target="_blank"
+                        rel="noreferrer"
                         style="
                             text-decoration:none;
                             font-weight:bold;
@@ -289,7 +331,7 @@ function DiaryAddEdit() {
                 </p>
                 `
                     )
-            })
+            }))
 
         } catch (error) {
 
@@ -298,6 +340,32 @@ function DiaryAddEdit() {
         } finally {
 
             setUploading(false)
+        }
+    }
+
+    function handleAttachmentClick(attachment: DiaryAttachment) {
+        setSelectedAttachment(attachment)
+        setPreviewOpen(true)
+    }
+
+    async function removeAttachment(attachmentId: string) {
+        // Delete from Supabase storage
+        const deleted = await deleteAttachmentFromStorage(attachmentId)
+        
+        if (deleted) {
+            const updated = attachments.filter(item => item.id !== attachmentId)
+            setAttachments(updated)
+            
+            // Remove from entry
+            setEntry(prev => ({
+                ...prev,
+                attachments: updated
+            }))
+            
+            if (selectedAttachment?.id === attachmentId) {
+                setSelectedAttachment(null)
+                setPreviewOpen(false)
+            }
         }
     }
 
@@ -656,6 +724,156 @@ function DiaryAddEdit() {
 
                     </Paper>
 
+                    {attachments.length > 0 && (
+                        <Box sx={{ mb: 2 }}>
+                            <Typography
+                                variant="subtitle1"
+                                sx={{
+                                    fontWeight: 'bold',
+                                    mb: 1
+                                }}
+                            >
+                                Uploaded Attachments
+                            </Typography>
+
+                            <Box
+                                sx={{
+                                    display: 'grid',
+                                    gridTemplateColumns: {
+                                        xs: '1fr',
+                                        sm: '1fr 1fr',
+                                        md: '1fr 1fr 1fr'
+                                    },
+                                    gap: 1
+                                }}
+                            >
+                                {attachments.map((attachment) => (
+                                    <Paper
+                                        key={attachment.id}
+                                        elevation={2}
+                                        sx={{
+                                            p: 1,
+                                            borderRadius: 3,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: 1,
+                                            minHeight: 120,
+                                            position: 'relative',
+                                            '&:hover': {
+                                                boxShadow: 6
+                                            }
+                                        }}
+                                    >
+
+                                        {/* MAIN CLICK AREA (opens preview) */}
+                                        <Box
+                                            sx={{
+                                                flex: 1,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                gap: 1,
+                                                textAlign: 'center'
+                                            }}
+                                            onClick={() => handleAttachmentClick(attachment)}
+                                        >
+
+                                            {attachment.type?.startsWith('image/') ? (
+                                                <Box
+                                                    component="img"
+                                                    src={attachment.url}
+                                                    alt={attachment.name}
+                                                    sx={{
+                                                        width: '100%',
+                                                        maxHeight: 120,
+                                                        borderRadius: 2,
+                                                        objectFit: 'cover'
+                                                    }}
+                                                />
+                                            ) : (
+                                                <UploadFileIcon
+                                                    sx={{ fontSize: 36, color: '#e91e63' }}
+                                                />
+                                            )}
+
+                                            {/* CLICKABLE FILE LINK */}
+                                            {!attachment.type?.startsWith('image/') && (
+                                                <Typography
+                                                    component="a"
+                                                    href={attachment.url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    onClick={(e) => e.stopPropagation()} // 🔥 IMPORTANT
+                                                    sx={{
+                                                        fontSize: '0.95rem',
+                                                        fontWeight: 'bold',
+                                                        textDecoration: 'none',
+                                                        color: '#1976d2',
+                                                        '&:hover': {
+                                                            textDecoration: 'underline'
+                                                        }
+                                                    }}
+                                                >
+                                                    📎 Open {attachment.name}
+                                                </Typography>
+                                            )}
+
+                                            {attachment.type?.startsWith('image/') && (
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: '0.9rem',
+                                                        fontWeight: 'bold',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                        width: '100%'
+                                                    }}
+                                                >
+                                                    {attachment.name}
+                                                </Typography>
+                                            )}
+
+                                        </Box>
+
+                                        {/* DELETE BUTTON */}
+                                        <Box
+                                            sx={{
+                                                position: 'absolute',
+                                                top: 8,
+                                                right: 8,
+                                                zIndex: 10
+                                            }}
+                                        >
+                                            <IconButton
+                                                size="small"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    removeAttachment(attachment.id ?? '')
+                                                }}
+                                                sx={{
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                    color: '#e91e63',
+                                                    width: 36,
+                                                    height: 36,
+                                                    transition: '0.2s',
+                                                    '&:hover': {
+                                                        backgroundColor: '#fff5f8',
+                                                        transform: 'scale(1.1)'
+                                                    }
+                                                }}
+                                            >
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </Box>
+
+                                    </Paper>
+                                ))}
+                            </Box>
+                        </Box>
+                    )}
+
                     <Divider sx={{ mb: 2 }} />
 
                     {/* EDITOR */}
@@ -794,6 +1012,52 @@ function DiaryAddEdit() {
                 </CardContent>
 
             </Card>
+
+            <Dialog
+                open={previewOpen}
+                onClose={() => setPreviewOpen(false)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>
+                    {selectedAttachment?.name ?? 'Attachment Preview'}
+                </DialogTitle>
+                <DialogContent sx={{ p: 3 }}>
+                    {selectedAttachment?.type?.startsWith('image/') ? (
+                        <Box
+                            component="img"
+                            src={selectedAttachment.url}
+                            alt={selectedAttachment.name}
+                            sx={{
+                                width: '100%',
+                                maxHeight: 550,
+                                objectFit: 'contain',
+                                borderRadius: 3
+                            }}
+                        />
+                    ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <Typography>
+                                This file can be opened in a new tab or downloaded.
+                            </Typography>
+                            <Button
+                                variant="contained"
+                                component="a"
+                                href={selectedAttachment?.url}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                Open File
+                            </Button>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setPreviewOpen(false)}>
+                        Close
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* DELETE CONFIRMATION */}
             <Dialog

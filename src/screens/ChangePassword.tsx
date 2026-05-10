@@ -1,11 +1,15 @@
-import { Box, Button, TextField, Typography } from "@mui/material"
+import { Box, Button, TextField, Typography, IconButton, InputAdornment } from "@mui/material"
 import { useState } from "react"
 import { supabase } from "../supabaseClient"
+import Visibility from '@mui/icons-material/Visibility'
+import VisibilityOff from '@mui/icons-material/VisibilityOff'
 
 function ChangePassword() {
 
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const [message, setMessage] = useState('')
 
     async function changePassword() {
@@ -62,19 +66,47 @@ function ChangePassword() {
             <TextField
                 fullWidth
                 label="New Password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 sx={{ mb: 2 }}
+                slotProps={{
+                    input: {
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    edge="end"
+                                >
+                                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                                </IconButton>
+                            </InputAdornment>
+                        )
+                    }
+                }}
             />
 
             <TextField
                 fullWidth
                 label="Confirm Password"
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 sx={{ mb: 2 }}
+                slotProps={{
+                    input: {
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    edge="end"
+                                >
+                                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                                </IconButton>
+                            </InputAdornment>
+                        )
+                    }
+                }}
             />
 
             <Button

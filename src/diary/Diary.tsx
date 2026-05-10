@@ -14,13 +14,21 @@ export type MoodType = {
     icon?: any,
 }
 
+export type DiaryAttachment = {
+    id?: string
+    name: string
+    url: string
+    type: string
+}
+
 export type DiaryEntryType = {
     id?: string,
     date: Date,
     title: string,
     mood: number,
     content: string,
-    star: number, 
+    star: number,
+    attachments?: DiaryAttachment[]
 }
 
 export const moodList: MoodType[] = [
