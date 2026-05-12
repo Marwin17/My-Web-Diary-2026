@@ -1,3 +1,11 @@
+/*
+ * File: src/screens/Searchbar.tsx
+ * Authors: Mary Allison Chen, Marwin Tan
+ * Created: May 11, 2026
+ * Description: Component that provides search and filter interface for diary entries.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ */
+
 import { useState, type KeyboardEvent } from "react"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
@@ -10,10 +18,9 @@ import FormControl from "@mui/material/FormControl"
 import InputLabel from "@mui/material/InputLabel"
 import Select from "@mui/material/Select"
 import MenuItem from "@mui/material/MenuItem"
-import Drawer from "@mui/material/Drawer"
 import Divider from "@mui/material/Divider"
+import Drawer from "@mui/material/Drawer"
 import SearchIcon from '@mui/icons-material/Search'
-import TuneIcon from '@mui/icons-material/Tune'
 import ClearIcon from '@mui/icons-material/Clear'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail'
@@ -23,7 +30,7 @@ export type SearchState = {
     filter: string
     filterMood: number
     filterStar: number
-    sortOrder: 'asc' | 'desc'
+    sortOrder: 'asc' | 'desc'        // asc = Oldest → Latest, desc = Latest → Oldest
     sortByStar: 'none' | 'asc' | 'desc'
     dateFrom: string
     dateTo: string
@@ -32,7 +39,7 @@ export type SearchState = {
 type SearchbarProps = {
     params: SearchState
     onChange: (params: SearchState) => void
-    onSearch: () => void
+    onSearch: (params: SearchState) => void
     onClear: () => void
 }
 
@@ -49,15 +56,20 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
     ]
 
     const updateParams = (changes: Partial<SearchState>) => {
-        onChange({
+        const updated = {
             ...params,
             ...changes
-        })
+        }
+        // Notify parent of the change
+        onChange(updated)
+
+        // Trigger an immediate search after parent receives the updated params.
+        setTimeout(() => onSearch(updated), 0)
     }
 
     const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.key === 'Enter') {
-            onSearch()
+            onSearch(params)
             event.preventDefault()
         }
     }
@@ -72,8 +84,9 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                     maxWidth: 720,
                     p: 1.5,
                     borderRadius: 4,
-                    background: 'linear-gradient(135deg, #ffffff 0%, #fff5f7 100%)',
-                    border: '1px solid #ffe4ec'
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider'
                 }}
             >
                 <Box
@@ -98,7 +111,7 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">
-                                        <SearchIcon sx={{ color: '#e91e63' }} />
+                                        <SearchIcon sx={{ color: 'primary.main' }} />
                                     </InputAdornment>
                                 )
                             }}
@@ -107,7 +120,7 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                                     height: '42px',
                                     borderRadius: 3,
                                     '&:hover fieldset': {
-                                        borderColor: '#e91e63'
+                                        borderColor: 'primary.main'
                                     }
                                 }
                             }}
@@ -115,36 +128,37 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                     </Box>
 
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0 }}>
+                        <IconButton
+                            onClick={() => setOpenMore(true)}
+                            sx={{
+                                height: '42px',
+                                width: '42px',
+                                borderRadius: 3,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                '&:hover': {
+                                    backgroundColor: 'action.hover'
+                                }
+                            }}
+                            title="Advanced Filters"
+                        >
+                            <FilterListIcon sx={{ color: 'primary.main' }} />
+                        </IconButton>
                         <Button
                             variant="contained"
                             size="medium"
-                            onClick={onSearch}
+                            onClick={() => onSearch(params)}
                             sx={{
                                 height: '42px',
                                 minWidth: 110,
                                 borderRadius: 3,
-                                background: 'linear-gradient(135deg, #e91e63, #ff80ab)',
+                                backgroundColor: 'primary.main',
+                                color: 'primary.contrastText',
                                 textTransform: 'none',
                                 fontWeight: 'bold'
                             }}
                         >
                             Search
-                        </Button>
-
-                        <Button
-                            variant="outlined"
-                            size="medium"
-                            startIcon={<TuneIcon />}
-                            onClick={() => setOpenMore(true)}
-                            sx={{
-                                height: '42px',
-                                borderRadius: 3,
-                                border: '2px solid #e91e63',
-                                color: '#e91e63',
-                                textTransform: 'none'
-                            }}
-                        >
-                            Filters
                         </Button>
                     </Box>
                 </Box>
@@ -157,7 +171,9 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                         width: 340,
                         p: 3,
                         height: '100vh',
-                        overflowY: 'auto'
+                        overflowY: 'auto',
+                        bgcolor: 'background.default',
+                        color: 'text.primary'
                     }}
                 >
                     <Box
@@ -172,10 +188,7 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                             variant="h6"
                             sx={{
                                 fontWeight: 'bold',
-                                background: 'linear-gradient(135deg, #e91e63, #ff80ab)',
-                                backgroundClip: 'text',
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent'
+                                color: 'primary.main'
                             }}
                         >
                             Advanced Filters
@@ -193,12 +206,12 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                             value={params.filterMood}
                             label="Mood"
                             onChange={(event) =>
-                                updateParams({ filterMood: event.target.value as number })
+                                updateParams({ filterMood: Number(event.target.value) })
                             }
                             sx={{
                                 borderRadius: 2,
                                 '&:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: '#e91e63'
+                                    borderColor: 'primary.main'
                                 }
                             }}
                         >
@@ -219,12 +232,12 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                             value={params.filterStar}
                             label="Star Rating"
                             onChange={(event) =>
-                                updateParams({ filterStar: event.target.value as number })
+                                updateParams({ filterStar: Number(event.target.value) })
                             }
                             sx={{
                                 borderRadius: 2,
                                 '&:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: '#e91e63'
+                                    borderColor: 'primary.main'
                                 }
                             }}
                         >
@@ -251,7 +264,7 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                             sx={{
                                 borderRadius: 2,
                                 '&:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: '#e91e63'
+                                    borderColor: 'primary.main'
                                 }
                             }}
                         >
@@ -264,22 +277,22 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                     <Divider sx={{ my: 2.5 }} />
 
                     <FormControl fullWidth sx={{ mb: 2.5 }}>
-                        <InputLabel sx={{ fontWeight: 'bold' }}>Sort Title</InputLabel>
+                        <InputLabel sx={{ fontWeight: 'bold' }}>Sort by Date</InputLabel>
                         <Select
                             value={params.sortOrder}
-                            label="Sort Title"
+                            label="Sort by Date"
                             onChange={(event) =>
                                 updateParams({ sortOrder: event.target.value as 'asc' | 'desc' })
                             }
                             sx={{
                                 borderRadius: 2,
                                 '&:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: '#e91e63'
+                                    borderColor: 'primary.main'
                                 }
                             }}
                         >
-                            <MenuItem value="asc">A → Z</MenuItem>
-                            <MenuItem value="desc">Z → A</MenuItem>
+                            <MenuItem value="desc">Latest → Oldest</MenuItem>
+                            <MenuItem value="asc">Oldest → Latest</MenuItem>
                         </Select>
                     </FormControl>
 
@@ -297,7 +310,7 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                         onChange={(event) =>
                             updateParams({ dateFrom: event.target.value })
                         }
-                        sx={{ mb: 1.5 }}
+                        sx={{ mb: 1.5, '& .MuiInputBase-root': { backgroundColor: 'background.paper' } }}
                     />
 
                     <TextField
@@ -319,13 +332,14 @@ export default function Searchbar({ params, onChange, onSearch, onClear }: Searc
                         variant="contained"
                         startIcon={<FilterListIcon />}
                         onClick={() => {
-                            onSearch()
                             setOpenMore(false)
+                            setTimeout(() => onSearch(params), 0)
                         }}
                         sx={{
                             py: 1.5,
                             borderRadius: 3,
-                            background: 'linear-gradient(135deg, #e91e63, #ff80ab)',
+                            backgroundColor: 'primary.main',
+                            color: 'primary.contrastText',
                             fontWeight: 'bold',
                             textTransform: 'none'
                         }}

@@ -1,18 +1,22 @@
+/*
+ * File: About.tsx
+ * Authors: Marwin Tan, Mary Allison Chen
+ * Created: Feb 2, 2026
+ * Description: Component that displays information about the Love Diary app, including features and developer contact.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ */
+
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import Paper from '@mui/material/Paper';
-import Accordion from '@mui/material/Accordion';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import AccordionDetails from '@mui/material/AccordionDetails';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 
 // Icons
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ShareIcon from '@mui/icons-material/Share';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -22,15 +26,26 @@ import LockIcon from '@mui/icons-material/Lock';
 import CreateIcon from '@mui/icons-material/Create';
 import StarIcon from '@mui/icons-material/Star';
 
+// Main About component
 function About() {
+    console.log('ℹ️ About component mounted')
+
+    // State for snackbar
     const [openSnackbar, setOpenSnackbar] = React.useState(false);
     const developerEmail = "hello@lovediaryapp.com"; // Change this to your real email
 
-    const handleCopyEmail = () => {
-        navigator.clipboard.writeText(developerEmail);
-        setOpenSnackbar(true);
+    // Function to copy email to clipboard
+    const handleCopyEmail = async () => {
+        try {
+            await navigator.clipboard.writeText(developerEmail);
+            setOpenSnackbar(true);
+        } catch (error) {
+            console.log('Copy failed', error);
+            alert('Copy to clipboard failed. Please copy the email manually: ' + developerEmail);
+        }
     };
 
+    // Function to share the app
     const handleShare = async () => {
         if (navigator.share) {
             try {
@@ -47,7 +62,8 @@ function About() {
         }
     };
 
-    const handleCloseSnackbar = (event?: React.SyntheticEvent | Event, reason?: string) => {
+    // Function to close snackbar
+    const handleCloseSnackbar = (_event?: React.SyntheticEvent | Event, reason?: string) => {
         if (reason === 'clickaway') return;
         setOpenSnackbar(false);
     };
@@ -63,10 +79,10 @@ function About() {
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 3, maxWidth: '600px', mx: 'auto', fontStyle: 'italic' }}>
                     "A digital time capsule for your thoughts, a safe harbor for your feelings, and a map of your beautiful life."
                 </Typography>
-                
+
                 <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-                    <Button 
-                        variant="contained" 
+                    <Button
+                        variant="contained"
                         startIcon={<ShareIcon />}
                         onClick={handleShare}
                         sx={{ borderRadius: 8, backgroundColor: '#e91e63', '&:hover': { backgroundColor: '#c2185b' } }}
@@ -82,10 +98,10 @@ function About() {
                     What is this space for?
                 </Typography>
                 <Typography variant="body1" sx={{ color: 'text.secondary', lineHeight: 1.8, fontSize: '1.1rem' }}>
-                    Life moves fast, and the little moments often slip through our fingers. 
-                    Love Diary was created to help you hit pause. Whether you need to untangle a messy 
-                    thought, celebrate a quiet victory, or just brain-dump after a long day, this is your 
-                    judgment-free zone. It's more than a notepad; it's a tool for mindfulness, self-reflection, 
+                    Life moves fast, and the little moments often slip through our fingers.
+                    Love Diary was created to help you hit pause. Whether you need to untangle a messy
+                    thought, celebrate a quiet victory, or just brain-dump after a long day, this is your
+                    judgment-free zone. It's more than a notepad; it's a tool for mindfulness, self-reflection,
                     and recognizing the patterns in your own emotional journey.
                 </Typography>
             </Box>
@@ -97,7 +113,7 @@ function About() {
                 What's inside your diary?
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3, mb: 6 }}>
-                
+
                 <Paper elevation={2} sx={{ p: 3, borderRadius: 3, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                     <CreateIcon sx={{ fontSize: 32, color: '#9c27b0', mb: 1 }} />
                     <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>Expressive Entries</Typography>
@@ -152,8 +168,8 @@ function About() {
                 <Typography color="text.secondary" sx={{ mb: 3 }}>
                     Have an idea to make Love Diary better? Or just want to say hi? Reach out anytime.
                 </Typography>
-                <Button 
-                    variant="outlined" 
+                <Button
+                    variant="outlined"
                     startIcon={<ContentCopyIcon />}
                     onClick={handleCopyEmail}
                     sx={{ borderRadius: 8, color: '#e91e63', borderColor: '#e91e63', '&:hover': { borderColor: '#c2185b', backgroundColor: 'rgba(233, 30, 99, 0.04)' } }}

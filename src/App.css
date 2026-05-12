@@ -1,3 +1,11 @@
+/*
+ * File: src/App.css
+ * Authors: Mary Allison Chen, Marwin Tan, Julia Irene Sia
+ * Created: May 5, 2026
+ * Description: Styles for the main App component.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ */
+
 #root {
   max-width: 1280px;
   margin: 0 auto;

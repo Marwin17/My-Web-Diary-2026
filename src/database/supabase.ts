@@ -1,3 +1,11 @@
+/*
+ * File: src/database/supabase.ts
+ * Authors: Mary Allison Chen, Marwin Tan, Julia Irene Sia
+ * Created: May 5, 2026
+ * Description: Database type definitions for Supabase.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ */
+
 export type Json =
   | string
   | number

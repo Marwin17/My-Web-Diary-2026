@@ -1,3 +1,11 @@
+/*
+ * File: App.tsx
+ * Authors: Marwin Tan, Mary Allison Chen,  Julia Irene Sia
+ * Created: Jan 28, 2026
+ * Description: Main application component that handles routing, authentication, theme switching, and provides the overall structure for the web diary application.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ */
+
 import * as React from 'react';
 import { useEffect } from 'react';
 
@@ -36,6 +44,7 @@ import Dashboard from './screens/Dashboard';
 import DiaryAddEdit from './screens/DiaryAddEdit';
 import DiaryItems from './screens/DiaryItems';
 import ChangePassword from './screens/ChangePassword';
+import HelpScreen from './screens/HelpScreen';
 
 import Login from './screens/Login';
 import Map from './screens/Maps';
@@ -47,26 +56,34 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 
+// Type definition for page routes
 type PageRoute = {
   page: string,
   route: string,
 }
 
+// Array of main navigation pages
 const pages: PageRoute[] = [
   { page: 'Dashboard', route: '/' },
-  { page: 'About', route: '/about' },
   { page: 'Diary', route: '/diarylist' },
   { page: 'New', route: '/diaryedit' },
+  { page: 'Help', route: '/Helpscreen' },
+  { page: 'About', route: '/about' }
 ]
+
+// Array of settings pages for unauthenticated users
 const settings: PageRoute[] = [
   { page: 'Register', route: '/register' },
   { page: 'Login', route: '/login' },
 ]
+
+// Array of settings pages for authenticated users
 const settingsUser: PageRoute[] = [
   { page: 'Change password', route: '/password' },
   { page: 'Logout', route: '/logout' },
 ]
 
+// Interface for user type
 export interface UserType {
   session: Session | null
   email: string | null
@@ -74,6 +91,7 @@ export interface UserType {
   username: string | null
 }
 
+// Global user object
 export const user: UserType = {
   session: null,
   email: null,
@@ -81,7 +99,7 @@ export const user: UserType = {
   username: null
 }
 
-
+// Function to test profiles table connection
 function testProfiles() {
   supabase.from('profiles').select().then(({ data, error }) => {
     console.log(data)
@@ -89,14 +107,15 @@ function testProfiles() {
   })
 }
 
+// Main App component function
 function App() {
 
   const navigate = useNavigate()
 
   const [dark, setDark] = React.useState(false)
 
-  // ✅ ADD HERE
-  const [results, setResults] = React.useState<any[]>([]);
+  // Track optional search results; undefined means no search has been performed yet
+  const [results, setResults] = React.useState<any[] | undefined>(undefined);
 
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
@@ -105,13 +124,12 @@ function App() {
     initUser()
   }, [])
 
-  const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorElNav(event.currentTarget);
-  };
+  // Function to handle opening user menu
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElUser(event.currentTarget);
   };
 
+  // Function to handle navigation menu selection
   const handleNavMenu = (page: string) => {
     //alert(page)
     navigate(page)
@@ -134,6 +152,7 @@ function App() {
   const [username, setUsername] = React.useState('')
   const [openProfileSettings, setOpenProfileSettings] = React.useState(false)
 
+  // Function to handle user logout
   const logout = async () => {
 
     const { error } = await supabase.auth.signOut()
@@ -151,11 +170,14 @@ function App() {
 
     navigate('/login')
   }
+
+  // Type definition for profile data
   type ProfileData = {
     avatar_url: string | null
     username: string | null
   }
 
+  // Function to load user profile data
   const loadProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
@@ -180,6 +202,7 @@ function App() {
     }
   };
 
+  // Function to save updated username
   const saveUsername = async () => {
 
     const userId = user.session?.user?.id
@@ -203,6 +226,7 @@ function App() {
     setOpenProfileSettings(false)
   }
 
+  // Function to initialize user session and profile
   const initUser = async () => {
     const { data } = await supabase.auth.getSession();
 
@@ -228,10 +252,12 @@ function App() {
       }
     });
   };
+
   const [avatar, setAvatar] = React.useState<string | null>(null)
 
   const [openDrawer, setOpenDrawer] = React.useState(false);
 
+  // Function to perform search on diary entries
   const handleSearch = async (text: string) => {
     if (!text.trim()) return;
 
@@ -258,17 +284,20 @@ function App() {
     dateTo?: string;
     mood?: string;
   }>({});
+
+  // Function to update search filters
   const updateFilter = (key: string, value: any) => {
     setFilters(prev => ({
       ...prev,
       [key]: value
     }));
   };
-  ;
 
+  // Main render function
   return (
     <ThemeProvider theme={dark ? darkTheme : theme}>
       <CssBaseline />
+      {/* Main app bar */}
       <AppBar
         position="fixed"
         sx={{
@@ -278,6 +307,7 @@ function App() {
           zIndex: (theme) => theme.zIndex.drawer + 1
         }}
       >
+        {/* Navigation drawer */}
         <Drawer
           anchor="left"
           open={openDrawer}
@@ -285,7 +315,7 @@ function App() {
           ModalProps={{
             keepMounted: true
           }}
-          
+
           sx={{
             zIndex: (theme) => theme.zIndex.appBar - 1,
             '& .MuiDrawer-paper': {
@@ -311,7 +341,7 @@ function App() {
             role="presentation"
           >
 
-            {/* 💖 Header inside drawer */}
+            {/* Header inside drawer */}
             <Box sx={{ textAlign: 'center', mb: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#d81b60' }}>
                 💕 Love Diary
@@ -350,7 +380,7 @@ function App() {
               ))}
             </List>
 
-            {/* 💖 Footer inside drawer */}
+            {/* Footer inside drawer */}
             <Box sx={{ position: 'absolute', bottom: 20, width: '90%', textAlign: 'center' }}>
               <Typography variant="caption" sx={{ color: 'gray' }}>
                 Made with ❤️ for your memories
@@ -359,7 +389,7 @@ function App() {
 
           </Box>
         </Drawer>
-        {/* Container is removed, and we removed disableGutters so it has standard responsive edge spacing */}
+        {/* Toolbar with navigation */}
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', px: { xs: 1, sm: 2 } }}>
 
           {/* LEFT SECTION: Just the Hamburger Menu */}
@@ -661,6 +691,8 @@ function App() {
         <Route path='login' element={<Login />} />
         <Route path='password' element={<ChangePassword />} />
         <Route path='map/:loc' element={<Map />} />
+        <Route path='helpscreen' element={<HelpScreen />} />
+     
 
       </Routes>
     </ThemeProvider>

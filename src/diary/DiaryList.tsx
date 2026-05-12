@@ -1,12 +1,21 @@
-import Box from "@mui/material/Box"
+/*
+ * File: src/diary/DiaryList.tsx
+ * Authors: Mary Allison Chen, Marwin Tan, Julia Irene Sia
+ * Created: jan 28, 2026
+ * Description: Component that renders the list of diary entries with filtering, sorting, and pagination.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ */
+
 import Typography from "@mui/material/Typography"
 import Paper from "@mui/material/Paper"
 import IconButton from '@mui/material/IconButton'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import Tooltip from '@mui/material/Tooltip'
-import { moodList, sampleDiary, type DiaryEntryType } from "./Diary"
+import Box from '@mui/material/Box'
+import { moodList, sampleDiary, type DiaryEntryType, type DiaryAttachment } from "./Diary"
 import { useEffect, useState } from "react"
+import type { Session } from '@supabase/supabase-js'
 import { useNavigate } from "react-router"
 import { useTheme } from "@mui/material/styles"
 import { supabase } from "../supabaseClient"
@@ -24,11 +33,112 @@ import DialogContent from "@mui/material/DialogContent"
 import DialogActions from "@mui/material/DialogActions"
 import Map from "../screens/Maps"
 import Searchbar, { type SearchState } from "../screens/Searchbar"
-import TooltipMui from '@mui/material/Tooltip'
+import DOMPurify from 'dompurify'
+
+function stripAttachmentLinks(html: string, attachments?: DiaryAttachment[]) {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+
+    // 1) Remove explicit file links referencing attachments (anchors + imgs)
+    if (attachments?.length) {
+        const attachmentUrls = attachments.map(a => a.url).filter(Boolean)
+        doc.querySelectorAll('a').forEach(anchor => {
+            const anchorText = anchor.textContent?.trim() ?? ''
+            const href = anchor.getAttribute('href') ?? ''
+            if (
+                attachmentUrls.some(u => href.includes(u)) ||
+                attachments.some(a => anchorText === a.name || anchorText.includes(a.name))
+            ) {
+                anchor.remove()
+            }
+        })
+
+        // remove <img> tags referencing attachment URLs
+        doc.querySelectorAll('img').forEach(img => {
+            const src = img.getAttribute('src') ?? ''
+            if (attachmentUrls.some(u => src.includes(u))) img.remove()
+        })
+    }
+
+    // 2) Ensure structured location elements don't show any visible text
+    doc.querySelectorAll('[data-lat][data-lng]').forEach(el => {
+        // keep metadata attributes, but clear visible content
+        el.textContent = ''
+    })
+
+    // 3) Remove visible bracket coordinates and any short appended label text from text-only nodes
+    doc.querySelectorAll('*').forEach(el => {
+        if (!el.children.length) {
+            const inner = el.innerHTML
+            // remove bracket coords + up to 100 chars of simple label following them
+            const replaced = inner.replace(/(\[\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\])\s*[A-Za-z0-9_\-()., ]{0,100}/g, '')
+            if (replaced !== inner) el.innerHTML = replaced
+        }
+    })
+
+    // 4) Final cleanup: remove any stray bracket occurrences left
+    const finalHtml = doc.body.innerHTML.replace(/\[\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\]/g, '')
+
+    return DOMPurify.sanitize(finalHtml, {
+        ALLOWED_TAGS: [
+            'b',
+            'i',
+            'em',
+            'strong',
+            'p',
+            'br',
+            'ul',
+            'ol',
+            'li',
+            'span',
+            'div'
+        ],
+        ALLOWED_ATTR: [
+            'data-lat',
+            'data-lng',
+            'data-name'
+        ]
+    })
+}
+
+// New helper: extract location blocks (prefer structured diary-loc elements, fallback to bracket pattern)
+function extractLocationsFromHtml(html: string) {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+    const locations: { lat: string, lng: string, name: string }[] = []
+
+    // 1) Find elements with data-lat/data-lng (structured insertion)
+    doc.querySelectorAll('[data-lat][data-lng]').forEach(el => {
+        const lat = el.getAttribute('data-lat') ?? ''
+        const lng = el.getAttribute('data-lng') ?? ''
+        const name = el.getAttribute('data-name') ?? ''
+        if (lat && lng) {
+            locations.push({ lat, lng, name })
+        }
+    })
+
+    // 2) Fallback: bracket coordinates like [lat, lng]
+    if (locations.length === 0) {
+        const bracketRegex = /\[(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\]/g
+        let match
+        while ((match = bracketRegex.exec(html)) !== null) {
+            const lat = match[1]
+            const lng = match[2]
+            // we don't try to capture a visible label (user asked labels be hidden).
+            const name = `${lat}, ${lng}`
+            locations.push({ lat, lng, name })
+        }
+    }
+
+    return locations
+}
 
 function DiaryList({ results }: { results?: any[] }) {
+    const [session, setSession] = useState<Session | null>(null)
+    const [authLoading, setAuthLoading] = useState(true)
 
     const [diaryList, setDiaryList] = useState<DiaryEntryType[]>([])
+
     const [searchParams, setSearchParams] = useState<SearchState>({
         filter: '',
         filterMood: -1,
@@ -49,17 +159,11 @@ function DiaryList({ results }: { results?: any[] }) {
     const favoritesPerPage = 3
     const entriesPerPage = 10
 
-    // ✅ EXISTING (DB fetch)
-    useEffect(() => {
-        loadEntries()
-    }, [])
-
     // ✅ ADD THIS HERE (search results override)
     useEffect(() => {
 
-        // search results
-        if (results && results.length > 0) {
-
+        // if the parent passed search results, show those and reset pagination
+        if (Array.isArray(results)) {
             const entries = results.map(item => ({
                 id: item.id,
                 date: item.created_at
@@ -69,26 +173,106 @@ function DiaryList({ results }: { results?: any[] }) {
                 mood: item.mood ?? 1,
                 content: item.content ?? '',
                 star: item.star ?? 1,
-
                 attachments: item.attachments ?? []
             }))
 
             setDiaryList(entries)
+            setCurrentPage(1)
+            setFavoritePage(1)
+            return
         }
 
-        // normal loading
-        else {
+        // normal loading when there are no external results
+        if (!results && !authLoading) {
             loadEntries()
         }
 
-    }, [results])
+    }, [results, session, authLoading])
+
+    useEffect(() => {
+        let mounted = true
+
+        supabase.auth.getSession().then(({ data }) => {
+            if (!mounted) return
+            setSession(data.session)
+            setAuthLoading(false)
+        }).catch((error) => {
+            console.error('DiaryList: failed to get session', error)
+            if (mounted) {
+                setSession(null)
+                setAuthLoading(false)
+            }
+        })
+
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (!mounted) return
+            setSession(session)
+            setAuthLoading(false)
+        })
+
+        return () => {
+            mounted = false
+            listener.subscription?.unsubscribe?.()
+        }
+    }, [])
+
+    // NEW: respond immediately when search parameters change (instant search)
+    useEffect(() => {
+        // reset pagination and load entries using the new params
+        setCurrentPage(1)
+        setFavoritePage(1)
+        loadEntries(searchParams)
+    }, [searchParams])
+
+    // NEW: listen for favorites changes (storage events from other tabs + custom same-tab event)
+    useEffect(() => {
+        function onStorage(e: StorageEvent) {
+            if (e.key === 'favorite-diaries') {
+                try {
+                    const newFavs = e.newValue ? JSON.parse(e.newValue) : []
+                    setFavorites(Array.isArray(newFavs) ? newFavs : [])
+                } catch {
+                    setFavorites([])
+                }
+            }
+        }
+
+        function onCustom(e: Event) {
+            // event.detail contains updated array
+            try {
+                const detail = (e as CustomEvent).detail
+                if (detail && Array.isArray(detail)) {
+                    setFavorites(detail)
+                } else {
+                    const saved = localStorage.getItem('favorite-diaries')
+                    setFavorites(saved ? JSON.parse(saved) : [])
+                }
+            } catch {
+                const saved = localStorage.getItem('favorite-diaries')
+                setFavorites(saved ? JSON.parse(saved) : [])
+            }
+        }
+
+        window.addEventListener('storage', onStorage)
+        window.addEventListener('favorite-diaries-updated', onCustom as EventListener)
+
+        return () => {
+            window.removeEventListener('storage', onStorage)
+            window.removeEventListener('favorite-diaries-updated', onCustom as EventListener)
+        }
+    }, [])
 
     // ⬇️ THEN your functions
     function loadEntries(params: SearchState = searchParams) {
+        if (!session?.user?.id) {
+            setDiaryList([])
+            return
+        }
 
         let query = supabase
             .from('entries')
             .select('*')
+            .eq('user_id', session.user.id)
 
         // 🔹 apply text search
         if (params.filter) {
@@ -121,10 +305,20 @@ function DiaryList({ results }: { results?: any[] }) {
             )
         }
 
-        query
-            .order('title', {
+        if (params.sortByStar !== 'none') {
+            query = query.order('star', {
+                ascending: params.sortByStar === 'asc'
+            })
+            query = query.order('created_at', {
                 ascending: params.sortOrder === 'asc'
             })
+        } else {
+            query = query.order('created_at', {
+                ascending: params.sortOrder === 'asc'
+            })
+        }
+
+        query
             .limit(100)
             .then(({ data, error }) => {
                 processEntries(data, error, params.sortByStar)
@@ -166,10 +360,10 @@ function DiaryList({ results }: { results?: any[] }) {
         }
     }
 
-    const handleSearch = () => {
+    const handleSearch = (paramsToUse: SearchState = searchParams) => {
         setCurrentPage(1)
         setFavoritePage(1)
-        loadEntries(searchParams)
+        loadEntries(paramsToUse)
     }
 
     const handleClearFilters = () => {
@@ -200,6 +394,8 @@ function DiaryList({ results }: { results?: any[] }) {
 
         setFavorites(updated)
         localStorage.setItem('favorite-diaries', JSON.stringify(updated))
+        // Also notify same-tab listeners
+        window.dispatchEvent(new CustomEvent('favorite-diaries-updated', { detail: updated }))
     }
 
     const favoriteEntries = favorites
@@ -232,7 +428,7 @@ function DiaryList({ results }: { results?: any[] }) {
     return (
         <>
             {/* Added a wrapper Box to match the margin (m: 1.5) of the diary entries below */}
-            <Box sx={{ mx: 1.5, mt: 3.5, mb: 1.5 }}>
+            <Box sx={{ width: '100%', mx: 1.5, mt: 3.5, mb: 1.5 }}>
                 <Searchbar
                     params={searchParams}
                     onChange={setSearchParams}
@@ -250,8 +446,9 @@ function DiaryList({ results }: { results?: any[] }) {
                         mx: 1.5,
                         mb: 3,
                         borderRadius: 4,
-                        background: 'linear-gradient(135deg, #fff5f7 0%, #ffe4ec 50%, #fff0f5 100%)',
-                        border: '2px solid #ff80ab',
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
                         overflow: 'hidden',
                         position: 'relative',
                         '&::before': {
@@ -352,6 +549,7 @@ export function DiaryEntry(
         onFavorite?: (id: string) => void
     }
 ) {
+    console.log('📄 DiaryEntry component rendered, id:', prop.id)
 
     const { entry, show } = prop
 
@@ -363,24 +561,15 @@ export function DiaryEntry(
 
     const [selectedLocation, setSelectedLocation] = useState('')
 
-    const theme = useTheme()
+    // NEW: location picker dialog when multiple locations present
+    const [locationPickerOpen, setLocationPickerOpen] = useState(false)
+    const [locationOptions, setLocationOptions] = useState<{ lat: string, lng: string, name: string }[]>([])
 
-    function handleEdit(): void {
-
-        navigate(`/diaryedit/${entry.id}`, {
-            state: entry
-        })
-    }
+    const [selectedLocationLabel, setSelectedLocationLabel] = useState('')
 
     const [openFiles, setOpenFiles] = useState(false)
 
-    const [selectedFiles, setSelectedFiles] = useState<
-        {
-            id: string
-            name: string
-            url: string
-        }[]
-    >([])
+    const [selectedFiles, setSelectedFiles] = useState<DiaryAttachment[]>([])
 
     async function deleteAttachmentFromStorage(attachmentId: string) {
         try {
@@ -388,7 +577,7 @@ export function DiaryEntry(
                 .storage
                 .from('Diary_File_Upoad')
                 .remove([attachmentId])
-            
+
             if (error) {
                 console.log('Error deleting file:', error)
                 return false
@@ -409,20 +598,41 @@ export function DiaryEntry(
     }
 
     function hasMap(text: string): boolean {
-
-        const regex =
-            /\[(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\]/g
-
-        return regex.test(text)
+        const locations = extractLocationsFromHtml(text ?? '')
+        return locations.length > 0
     }
 
-    function extractFirstCoords(text: string): { lat: string, lng: string } | null {
-        const regex = /\[(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\]/g
-        const match = regex.exec(text)
-        if (match) {
-            return { lat: match[1], lng: match[2] }
+    function handleEdit(): void {
+
+        navigate(`/diaryedit/${entry.id}`, {
+            state: entry
+        })
+    }
+
+    const theme = useTheme()
+
+    function handleOpenLocationChooser(e: React.MouseEvent) {
+        e.stopPropagation()
+        const locations = extractLocationsFromHtml(entry.content ?? '')
+        if (locations.length === 0) return
+
+        if (locations.length === 1) {
+            const loc = locations[0]
+            setSelectedLocation(`${loc.lat},${loc.lng},19`)
+            setSelectedLocationLabel(loc.name ?? `${loc.lat}, ${loc.lng}`)
+            setOpenMap(true)
+        } else {
+            // multiple -> open picker dialog
+            setLocationOptions(locations)
+            setLocationPickerOpen(true)
         }
-        return null
+    }
+
+    function handlePickLocation(loc: { lat: string, lng: string, name: string }) {
+        setSelectedLocation(`${loc.lat},${loc.lng},19`)
+        setSelectedLocationLabel(loc.name ?? `${loc.lat}, ${loc.lng}`)
+        setLocationPickerOpen(false)
+        setOpenMap(true)
     }
 
     return (
@@ -431,8 +641,8 @@ export function DiaryEntry(
                 elevation={4}
                 sx={{
                     display: 'flex',
-                    p: 2.5,
-                    m: 1.5,
+                    p: 2,
+                    m: 1.25,
                     borderRadius: 4,
                     background:
                         theme.palette.mode === 'dark'
@@ -442,7 +652,7 @@ export function DiaryEntry(
                     border: '1.5px solid #ffd6e7',
                     position: 'relative',
                     overflow: expand ? 'visible' : 'hidden',
-                    maxHeight: expand ? 'auto' : 190,
+                    maxHeight: expand ? 'auto' : 170,
 
                     '&::before': {
                         content: '""',
@@ -477,7 +687,7 @@ export function DiaryEntry(
                     }}
                 >
                     <Typography sx={{ fontSize: '56px' }}>
-                        {moodList[entry.mood].icon}
+                        {moodList[entry.mood]?.icon ?? '❓'}
                     </Typography>
                 </Box>
 
@@ -515,13 +725,7 @@ export function DiaryEntry(
                                     size="small"
                                     variant="outlined"
                                     clickable
-                                    onClick={() => {
-                                        const coords = extractFirstCoords(entry.content)
-                                        if (coords) {
-                                            setSelectedLocation(`${coords.lat},${coords.lng},19`)
-                                            setOpenMap(true)
-                                        }
-                                    }}
+                                    onClick={handleOpenLocationChooser}
                                     sx={{
                                         borderColor: '#e91e63',
                                         color: '#e91e63',
@@ -602,6 +806,7 @@ export function DiaryEntry(
                             <Box sx={{ mt: 1, mb: 1 }}>
 
                                 <Typography
+                                    component="div"
                                     sx={{
                                         color: theme.palette.text.primary,
                                         lineHeight: 1.8,
@@ -611,7 +816,43 @@ export function DiaryEntry(
                                     <Box
                                         sx={{ fontSize: '0.95rem' }}
                                         dangerouslySetInnerHTML={{
-                                            __html: entry.content
+                                            __html: DOMPurify.sanitize(
+                                                stripAttachmentLinks(entry.content, entry.attachments),
+                                                {
+                                                    ALLOWED_TAGS: [
+                                                        'b',
+                                                        'i',
+                                                        'em',
+                                                        'strong',
+                                                        'p',
+                                                        'br',
+                                                        'ul',
+                                                        'ol',
+                                                        'li',
+                                                        'span',
+                                                        'div'
+                                                    ],
+                                                    ALLOWED_ATTR: [
+                                                        'data-lat',
+                                                        'data-lng',
+                                                        'data-name'
+                                                    ],
+                                                    FORBID_TAGS: [
+                                                        'script',
+                                                        'iframe',
+                                                        'object',
+                                                        'embed',
+                                                        'style',
+                                                        'link'
+                                                    ],
+                                                    FORBID_ATTR: [
+                                                        'onerror',
+                                                        'onclick',
+                                                        'onload',
+                                                        'style'
+                                                    ]
+                                                }
+                                            )
                                         }}
                                     />
                                 </Typography>
@@ -624,11 +865,8 @@ export function DiaryEntry(
                                             variant="contained"
                                             onClick={(e) => {
                                                 e.stopPropagation()
-                                                const coords = extractFirstCoords(entry.content)
-                                                if (coords) {
-                                                    setSelectedLocation(`${coords.lat},${coords.lng},19`)
-                                                    setOpenMap(true)
-                                                }
+                                                // reuse the same chooser logic used by the chip
+                                                handleOpenLocationChooser(e as any)
                                             }}
                                             sx={{
                                                 background:
@@ -701,50 +939,20 @@ export function DiaryEntry(
                     sx={{
                         display: 'flex',
                         flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'flex-start',
-                        minWidth: 85,
-                        gap: 1.5
+                        alignItems: 'flex-end',
+                        justifyContent: 'space-between',
+                        minWidth: 90,
+                        gap: 1,
+                        pt: 0.25
                     }}
                 >
-
-                    {/* Favorite Heart Button */}
-                    <Tooltip title={prop.favorite ? "Remove from favorites" : "Add to favorites"}>
-                        <IconButton
-                            onClick={() => {
-                                if (entry.id && prop.onFavorite) {
-                                    prop.onFavorite(entry.id)
-                                }
-                            }}
-                            sx={{
-                                backgroundColor: prop.favorite ? '#ffe4ec' : '#f5f5f5',
-                                width: 48,
-                                height: 48,
-                                transition: 'all 0.3s ease',
-                                transform: prop.favorite ? 'scale(1.1)' : 'scale(1)',
-
-                                '&:hover': {
-                                    backgroundColor: '#ffd6e7',
-                                    transform: 'scale(1.15)',
-                                }
-                            }}
-                        >
-                            <FavoriteIcon
-                                sx={{
-                                    color: prop.favorite ? '#e91e63' : '#ccc',
-                                    fontSize: '1.8rem',
-                                    transition: '0.3s'
-                                }}
-                            />
-                        </IconButton>
-                    </Tooltip>
 
                     {/* Stars Rating */}
                     <Box
                         sx={{
                             fontSize: '20px',
                             color: '#ffb300',
-                            minHeight: 32,
+                            minHeight: 28,
                             display: 'flex',
                             alignItems: 'center',
                             textShadow: '0 2px 4px rgba(255, 179, 0, 0.3)'
@@ -753,55 +961,59 @@ export function DiaryEntry(
                         {"★".repeat(entry.star)}
                     </Box>
 
-                    {/* File indicator button (visible on card) */}
-                    {entry.attachments?.length ? (
-                        <TooltipMui title={`Open ${entry.attachments.length} attachment(s)`}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'flex-end' }}>
+                        {/* Favorite Heart Button */}
+                        <Tooltip title={prop.favorite ? "Remove from favorites" : "Add to favorites"}>
                             <IconButton
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    setSelectedFiles(Array.isArray(entry.attachments) ? entry.attachments : [])
-                                    setOpenFiles(true)
+                                onClick={() => {
+                                    if (entry.id && prop.onFavorite) {
+                                        prop.onFavorite(entry.id)
+                                    }
                                 }}
-                                aria-label="attachments"
                                 sx={{
-                                    backgroundColor: '#fff0f5',
-                                    width: 44,
-                                    height: 44,
-                                    transition: '0.3s',
+                                    backgroundColor: prop.favorite ? '#ffe4ec' : '#f5f5f5',
+                                    width: 42,
+                                    height: 42,
+                                    transition: 'all 0.3s ease',
+                                    transform: prop.favorite ? 'scale(1.05)' : 'scale(1)',
+
                                     '&:hover': {
                                         backgroundColor: '#ffd6e7',
-                                        transform: 'rotate(5deg)'
+                                        transform: 'scale(1.1)',
                                     }
                                 }}
                             >
-                                <AttachFileIcon sx={{ color: '#e91e63' }} />
+                                <FavoriteIcon
+                                    sx={{
+                                        color: prop.favorite ? '#e91e63' : '#ccc',
+                                        fontSize: '1.5rem',
+                                        transition: '0.3s'
+                                    }}
+                                />
                             </IconButton>
-                        </TooltipMui>
-                    ) : (
-                        <Box sx={{ height: 44 }} />
-                    )}
+                        </Tooltip>
 
-                    {/* Edit Button */}
-                    <Tooltip title="Edit this memory">
-                        <IconButton
-                            aria-label="edit"
-                            onClick={handleEdit}
-                            sx={{
-                                backgroundColor: '#fff0f5',
-                                width: 48,
-                                height: 48,
-                                transition: '0.3s',
+                        {/* Edit Button */}
+                        <Tooltip title="Edit this memory">
+                            <IconButton
+                                aria-label="edit"
+                                onClick={handleEdit}
+                                sx={{
+                                    backgroundColor: '#fff0f5',
+                                    width: 42,
+                                    height: 42,
+                                    transition: '0.3s',
 
-                                '&:hover': {
-                                    backgroundColor: '#ffd6e7',
-                                    transform: 'rotate(10deg)'
-                                }
-                            }}
-                        >
-                            <EditIcon sx={{ color: '#e91e63' }} />
-                        </IconButton>
-                    </Tooltip>
-
+                                    '&:hover': {
+                                        backgroundColor: '#ffd6e7',
+                                        transform: 'rotate(10deg) scale(1.05)'
+                                    }
+                                }}
+                            >
+                                <EditIcon sx={{ color: '#e91e63' }} />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
                 </Box>
 
             </Paper>
@@ -812,6 +1024,7 @@ export function DiaryEntry(
                 onClose={() => {
                     setOpenMap(false)
                     setSelectedLocation('')
+                    setSelectedLocationLabel('')
                 }}
                 maxWidth="lg"
                 fullWidth
@@ -827,7 +1040,7 @@ export function DiaryEntry(
                         fontSize: '1.2rem'
                     }}
                 >
-                    📍 Memory Location
+                    📍 {selectedLocationLabel || 'Memory Location'}
                 </DialogTitle>
 
                 <DialogContent sx={{ p: 0 }}>
@@ -845,6 +1058,27 @@ export function DiaryEntry(
                 </DialogActions>
 
             </Dialog>
+
+            {/* LOCATION PICKER DIALOG (when multiple locations exist) */}
+            <Dialog
+                open={locationPickerOpen}
+                onClose={() => setLocationPickerOpen(false)}
+            >
+                <DialogTitle>Select Location</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                        {locationOptions.map((loc, idx) => (
+                            <Button key={`${loc.lat}-${loc.lng}-${idx}`} variant="outlined" onClick={() => handlePickLocation(loc)}>
+                                {loc.name || `${loc.lat}, ${loc.lng}`}
+                            </Button>
+                        ))}
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setLocationPickerOpen(false)} color="inherit">Cancel</Button>
+                </DialogActions>
+            </Dialog>
+
             {/* FILES POPUP */}
             <Dialog
                 open={openFiles}
@@ -944,7 +1178,9 @@ export function DiaryEntry(
                                     size="small"
                                     onClick={(e) => {
                                         e.stopPropagation()
-                                        deleteFileFromEntry(file.id)
+                                        if (file.id) {
+                                            deleteFileFromEntry(file.id)
+                                        }
                                     }}
                                     sx={{
                                         position: 'absolute',

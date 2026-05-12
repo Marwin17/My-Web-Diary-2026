@@ -1,3 +1,11 @@
+/*
+ * File: eslint.config.js
+ * Authors: Marwin Tan
+ * Created: Jan 28, 2026
+ * Description: ESLint configuration for code linting.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ */
+
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'

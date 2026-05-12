@@ -1,268 +1,655 @@
+/*
+ * File: src/screens/Dashboard.tsx
+ * Authors: Mary Allison Chen, Marwin Tan, Julia Irene Sia
+ * Created: May 5, 2026
+ * Description: Component that displays user dashboard with statistics, recent entries, and mood/star charts.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ */
+
 import { useEffect, useState, useCallback } from "react"
-import { Typography, Card, CardContent, Box, Divider, Button } from "@mui/material"
-import GridMui from "@mui/material/Grid"
-import type { GridProps as MuiGridProps, GridSize } from "@mui/material/Grid"
-import { sampleDiary, moodList, type DiaryEntryType } from "../diary/Diary"
-import { DiaryEntry } from "../diary/DiaryList"
-import { user } from "../App"
+import type { Session } from '@supabase/supabase-js'
+
+import {
+    Typography,
+    Card,
+    CardContent,
+    Box,
+    Divider,
+    Button,
+    LinearProgress,
+    Stack
+} from "@mui/material"
+
+import { moodList, type DiaryEntryType } from "../diary/Diary"
 import { supabase } from "../supabaseClient"
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts"
-import AddIcon from '@mui/icons-material/Add';
+import { DiaryEntry } from "../diary/DiaryList"
+
+import {
+    Cell,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip,
+    Legend
+} from "recharts"
+
+import AddIcon from '@mui/icons-material/Add'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import FavoriteIcon from '@mui/icons-material/Favorite'
+import StarIcon from '@mui/icons-material/Star'
+
 import { useNavigate } from "react-router"
 
-// local Grid wrapper so existing JSX using size={{ xs: 12, md: 4 }} continues to work
-type SizeProp = {
-    xs?: GridSize,
-    sm?: GridSize,
-    md?: GridSize,
-    lg?: GridSize,
-    xl?: GridSize
-}
-type WrappedGridProps = MuiGridProps & { size?: SizeProp }
-const Grid = (props: WrappedGridProps) => {
-    const { size, children, ...rest } = props
-    if (size) {
-        const itemProps: any = { item: true }
-        if (typeof size.xs !== 'undefined') itemProps.xs = size.xs
-        if (typeof size.sm !== 'undefined') itemProps.sm = size.sm
-        if (typeof size.md !== 'undefined') itemProps.md = size.md
-        if (typeof size.lg !== 'undefined') itemProps.lg = size.lg
-        if (typeof size.xl !== 'undefined') itemProps.xl = size.xl
-        return (
-            <GridMui {...itemProps} {...(rest as any)}>
-                {children}
-            </GridMui>
-        )
-    }
-    return <GridMui {...(rest as any)}>{children}</GridMui>
-}
-
 const MOOD_COLORS: Record<number, string> = {
-    0: '#d4a302', 1: '#109900', 2: '#ee0000', 3: '#fc7b03',
-    4: '#ff0000', 5: '#ee00ee', 6: '#0468bf', 7: '#5a5ae8',
-    8: '#888888', 9: '#dd0000',
+    0: '#d4a302',
+    1: '#109900',
+    2: '#ee0000',
+    3: '#fc7b03',
+    4: '#ff0000',
+    5: '#ee00ee',
+    6: '#0468bf',
+    7: '#5a5ae8',
+    8: '#888888',
+    9: '#dd0000',
 }
 
-const MOOD_MAP: Record<number, { name: string, color: string }> = moodList.reduce((map, item) => {
-    map[item.mood] = {
-        name: item.text,
-        color: MOOD_COLORS[item.mood] ?? '#8884d8'
-    }
-    return map
-}, {} as Record<number, { name: string, color: string }>)
+const MOOD_MAP: Record<number, { name: string, color: string }> =
+    moodList.reduce((map, item) => {
+
+        map[item.mood] = {
+            name: item.text,
+            color: MOOD_COLORS[item.mood] ?? '#8884d8'
+        }
+
+        return map
+
+    }, {} as Record<number, { name: string, color: string }>)
 
 function Dashboard() {
+    console.log('📊 Dashboard component mounted')
+
     const navigate = useNavigate()
+    const [session, setSession] = useState<Session | null>(null)
+    const [authLoading, setAuthLoading] = useState(true)
+
     const [count, setCount] = useState(0)
-    const [latestEntry, setLatestEntry] = useState<DiaryEntryType | null>(null)
-    const [moodDist, setMoodDist] = useState<{ name: string, value: number }[]>([])
 
-    // fetch data (uses supabase.auth.getUser to avoid depending on a non-reactive import)
-    const fetchDashboardData = useCallback(async () => {
+    const [latestEntry, setLatestEntry] =
+        useState<DiaryEntryType | null>(null)
+
+    const [moodDist, setMoodDist] =
+        useState<{ name: string, value: number }[]>([])
+
+    const [starDist, setStarDist] = useState([
+        { star: '⭐', value: 0 },
+        { star: '⭐⭐', value: 0 },
+        { star: '⭐⭐⭐', value: 0 },
+        { star: '⭐⭐⭐⭐', value: 0 },
+        { star: '⭐⭐⭐⭐⭐', value: 0 }
+    ])
+
+    const activeUserId = session?.user?.id ?? null
+
+    const resetDashboard = useCallback(() => {
+        setLatestEntry(null)
+        setCount(0)
+        setMoodDist([])
+        setStarDist([
+            { star: '⭐', value: 0 },
+            { star: '⭐⭐', value: 0 },
+            { star: '⭐⭐⭐', value: 0 },
+            { star: '⭐⭐⭐⭐', value: 0 },
+            { star: '⭐⭐⭐⭐⭐', value: 0 }
+        ])
+    }, [])
+
+    const fetchDashboardData = useCallback(async (userId: string | null) => {
+        console.log('🔄 Dashboard: Fetching data...')
+
+        if (!userId) {
+            console.log('🔄 Dashboard: No active user, clearing data')
+            resetDashboard()
+            return
+        }
+
         try {
-            const { data: sessionData } = await supabase.auth.getUser()
-            const activeUser = sessionData?.user ?? user.session?.user
-            const activeUserId = activeUser?.id
+            const { data, error } = await supabase
+                .from('entries')
+                .select('id, title, content, mood, star, created_at')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
 
-            if (!activeUserId) {
-                setLatestEntry(null)
-                setCount(0)
-                setMoodDist([])
+            if (error) {
+                console.warn('⚠️ Dashboard: Entries query error:', error)
+                resetDashboard()
                 return
             }
 
-            const [latestRes, countRes, moodRes] = await Promise.all([
-                supabase
-                    .from('entries')
-                    .select('*')
-                    .eq('user_id', activeUserId)
-                    .order('created_at', { ascending: false })
-                    .order('id', { ascending: false })
-                    .limit(1)
-                    .maybeSingle(),
+            const entries = Array.isArray(data) ? data : []
+            setCount(entries.length)
 
-                supabase
-                    .from('entries')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', activeUserId),
-
-                supabase
-                    .from('entries')
-                    .select('mood')
-                    .eq('user_id', activeUserId)
-            ])
-
-            if (latestRes?.data) {
+            if (entries.length > 0) {
+                const latestEntryData = entries[0]
                 setLatestEntry({
-                    id: latestRes.data.id,
-                    date: new Date(latestRes.data.created_at ?? new Date().toISOString()),
-                    title: latestRes.data.title ?? '',
-                    mood: latestRes.data.mood ?? 0,
-                    content: latestRes.data.content ?? '',
-                    star: latestRes.data.star ?? 0,
-                    attachments: (latestRes.data as any).attachments ?? []
+                    id: latestEntryData.id,
+                    date: new Date(latestEntryData.created_at ?? new Date().toISOString()),
+                    title: latestEntryData.title ?? '',
+                    mood: latestEntryData.mood ?? 0,
+                    content: latestEntryData.content ?? '',
+                    star: latestEntryData.star ?? 0,
+                    attachments: []
                 })
             } else {
                 setLatestEntry(null)
             }
 
-            setCount(typeof countRes?.count === 'number' ? countRes.count : 0)
-
-            if (Array.isArray(moodRes?.data)) {
-                const counts: Record<string, number> = {}
-                moodRes.data.forEach(item => {
-                    const moodKey = typeof item.mood === 'number' && MOOD_MAP[item.mood] ? item.mood : 1
-                    const label = MOOD_MAP[moodKey].name
-                    counts[label] = (counts[label] || 0) + 1
-                })
-                setMoodDist(Object.keys(counts).map(k => ({ name: k, value: counts[k] })))
-            } else {
-                setMoodDist([])
+            const moodCounts: Record<string, number> = {}
+            const starCounts: Record<number, number> = {
+                1: 0,
+                2: 0,
+                3: 0,
+                4: 0,
+                5: 0
             }
+
+            entries.forEach(entry => {
+                const moodKey = typeof entry.mood === 'number' && MOOD_MAP[entry.mood] ? entry.mood : 1
+                const moodLabel = MOOD_MAP[moodKey].name
+                moodCounts[moodLabel] = (moodCounts[moodLabel] || 0) + 1
+
+                const starValue = Number(entry.star)
+                if (starValue >= 1 && starValue <= 5) {
+                    starCounts[starValue] += 1
+                }
+            })
+
+            setMoodDist(Object.keys(moodCounts).map(k => ({ name: k, value: moodCounts[k] })))
+            setStarDist([
+                { star: '⭐', value: starCounts[1] },
+                { star: '⭐⭐', value: starCounts[2] },
+                { star: '⭐⭐⭐', value: starCounts[3] },
+                { star: '⭐⭐⭐⭐', value: starCounts[4] },
+                { star: '⭐⭐⭐⭐⭐', value: starCounts[5] }
+            ])
         } catch (err) {
-            console.error('Error fetching dashboard data', err)
+            console.error('❌ Dashboard: Error fetching dashboard data', err)
+            resetDashboard()
+        }
+    }, [resetDashboard])
+
+    useEffect(() => {
+        let mounted = true
+
+        supabase.auth.getSession().then(({ data }) => {
+            if (!mounted) return
+            setSession(data.session)
+            setAuthLoading(false)
+        }).catch((error) => {
+            console.error('Dashboard: failed to get session', error)
+            if (mounted) {
+                setSession(null)
+                setAuthLoading(false)
+            }
+        })
+
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+            if (!mounted) return
+            setSession(newSession)
+            setAuthLoading(false)
+        })
+
+        return () => {
+            mounted = false
+            if (listener) {
+                listener.subscription?.unsubscribe?.()
+            }
         }
     }, [])
 
     useEffect(() => {
-        fetchDashboardData()
-        window.addEventListener('focus', fetchDashboardData)
+        if (authLoading) return
 
-        let channelRef: any = null
-        ;(async () => {
-            try {
-                const { data: sessionData } = await supabase.auth.getUser()
-                const activeUserId = sessionData?.user?.id ?? user.session?.user?.id
-                const filter = activeUserId ? { filter: `user_id=eq.${activeUserId}` } : {}
+        if (!activeUserId) {
+            resetDashboard()
+            return
+        }
 
-                channelRef = supabase
-                    .channel('dashboard-updates')
-                    .on(
-                        'postgres_changes',
-                        {
-                            event: '*',
-                            schema: 'public',
-                            table: 'entries',
-                            ...filter
-                        },
-                        () => setTimeout(fetchDashboardData, 200)
-                    )
-                    .subscribe()
-            } catch (err) {
-                console.warn('Realtime channel initialization failed', err)
-            }
-        })()
+        let mounted = true
+
+        fetchDashboardData(activeUserId)
+
+        const onFocus = () => fetchDashboardData(activeUserId)
+        window.addEventListener('focus', onFocus)
+
+        const channel = supabase
+            .channel('dashboard-updates')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'entries',
+                    filter: `user_id=eq.${activeUserId}`
+                },
+                () => {
+                    if (!mounted) return
+                    setTimeout(() => fetchDashboardData(activeUserId), 200)
+                }
+            )
+            .subscribe()
 
         return () => {
-            window.removeEventListener('focus', fetchDashboardData)
-            if (channelRef) {
-                try { supabase.removeChannel(channelRef) } catch (e) { /* ignore */ }
+            mounted = false
+            window.removeEventListener('focus', onFocus)
+            try {
+                supabase.removeChannel(channel)
+            } catch {
+                // ignore cleanup failures
             }
         }
-    }, [fetchDashboardData])
-
-    // custom label renderer for outside labels with percentages
-    const renderCustomizedLabel = (props: any) => {
-        const { cx, cy, midAngle, innerRadius, outerRadius, percent, index } = props
-        const RADIAN = Math.PI / 180
-        const radius = outerRadius + (outerRadius - innerRadius) * 0.25 // push labels a bit further out
-        const x = cx + radius * Math.cos(-midAngle * RADIAN)
-        const y = cy + radius * Math.sin(-midAngle * RADIAN)
-        const textAnchor = x > cx ? 'start' : 'end'
-        const name = moodDist[index]?.name ?? ''
-        const valueText = `${(percent * 100).toFixed(0)}%`
-        return (
-            <text x={x} y={y} fill="#333" textAnchor={textAnchor} dominantBaseline="central" style={{ fontSize: 13 }}>
-                {name} <tspan fill="#999"> {valueText}</tspan>
-            </text>
-        )
-    }
+    }, [activeUserId, authLoading, fetchDashboardData])
 
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, backgroundColor: '#f5f5f5', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 } }}>
-                <Typography variant="h4" fontWeight="700" color="primary">Welcome Back!</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/diaryedit')} sx={{ borderRadius: 20 }}>
+
+        <Box
+            sx={{
+                p: { xs: 2, md: 4 },
+                bgcolor: 'background.default',
+                minHeight: '100vh'
+            }}
+        >
+
+            {/* HEADER */}
+            <Box
+                sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: {
+                        xs: 'flex-start',
+                        sm: 'center'
+                    },
+                    flexDirection: {
+                        xs: 'column',
+                        sm: 'row'
+                    },
+                    gap: 2,
+                    mb: 4
+                }}
+            >
+
+                <Box>
+
+                    <Typography
+                        variant="h3"
+                        fontWeight="800"
+                        sx={{
+                            color: 'primary.main'
+                        }}
+                    >
+                        Welcome Back!
+                    </Typography>
+
+                    <Typography
+                        variant="body1"
+                        color="text.secondary"
+                        sx={{
+                            mt: .5
+                        }}
+                    >
+                        Your emotions and memories all in one place ✨
+                    </Typography>
+
+                </Box>
+
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => navigate('/diaryedit')}
+                    sx={{
+                        borderRadius: 100,
+                        px: 3,
+                        py: 1.2,
+                        fontWeight: 700,
+                        background:
+                            'linear-gradient(45deg, #ff2e7a, #ff0055)',
+                        boxShadow: 4
+                    }}
+                >
                     New Entry
                 </Button>
+
             </Box>
 
-            <Grid container spacing={{ xs: 2, sm: 2, md: 3 }}>
-                <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
-                    <Card sx={{ height: '100%', borderRadius: 4, boxShadow: 3, width: '100%' }}>
-                        <CardContent>
-                            <Typography color="textSecondary" gutterBottom>Total Memories</Typography>
-                            <Typography variant="h2" fontWeight="bold">{count}</Typography>
-                            <Divider sx={{ my: 2 }} />
-                            <Typography variant="body2" color="textSecondary">
-                                You have written {count} entries since you started your journey.
+            {/* DASHBOARD GRID */}
+            <Box
+                sx={{
+                    display: 'grid',
+                    gridTemplateColumns: {
+                        xs: '1fr',
+                        md: 'repeat(3, 1fr)'
+                    },
+                    gap: 3,
+                    alignItems: 'stretch'
+                }}
+            >
+
+                <Card
+                    sx={{
+                        width: '100%',
+                        borderRadius: 5,
+                        boxShadow: 4,
+                        bgcolor: 'background.paper',
+                        transition: '.2s',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        '&:hover': {
+                            transform: 'translateY(-4px)'
+                        }
+                    }}
+                >
+
+                    <CardContent>
+
+                        <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                            mb={2}
+                        >
+
+                            <Typography
+                                color="text.secondary"
+                                fontWeight={700}
+                            >
+                                Total Memories
                             </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
 
-                <Grid size={{ xs: 12, md: 8 }} sx={{ display: 'flex' }}>
-                    <Card sx={{ height: '100%', borderRadius: 4, boxShadow: 3, width: '100%' }}>
-                        <CardContent sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <Typography variant="h6" fontWeight="600" gutterBottom>Mood Distribution</Typography>
+                            <FavoriteIcon
+                                sx={{
+                                    color: '#ff4081'
+                                }}
+                            />
 
-                            <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                {/* Chart area with enough height for outside labels */}
-                                <Box sx={{ width: '100%', maxWidth: 640, height: 320 }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart margin={{ top: 20, right: 40, left: 40, bottom: 10 }}>
-                                            <Pie
-                                                data={moodDist}
-                                                dataKey="value"
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={70}
-                                                outerRadius={110}
-                                                paddingAngle={6}
-                                                labelLine={true}
-                                                label={renderCustomizedLabel}
+                        </Stack>
+
+                        <Typography
+                            variant="h1"
+                            fontWeight="800"
+                        >
+                            {count}
+                        </Typography>
+
+                        <Divider sx={{ my: 2 }} />
+
+                        <Typography
+                            color="text.secondary"
+                        >
+                            You have written {count} diary entries filled with memories and emotions.
+                        </Typography>
+
+                    </CardContent>
+
+                </Card>
+
+                <Card
+                    sx={{
+                        width: '100%',
+                        borderRadius: 5,
+                        boxShadow: 4,
+                        transition: '.2s',
+                        '&:hover': {
+                            transform: 'translateY(-4px)'
+                        }
+                    }}
+                >
+
+                    <CardContent>
+
+                        <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                            mb={1}
+                        >
+
+                            <Typography
+                                variant="h6"
+                                fontWeight="700"
+                            >
+                                Emotion Journal
+                            </Typography>
+
+                            <AutoAwesomeIcon
+                                sx={{
+                                    color: '#ff9800'
+                                }}
+                            />
+
+                        </Stack>
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            mb={2}
+                        >
+                            Your emotional journey based on diary moods.
+                        </Typography>
+
+                        <Box
+                            sx={{
+                                width: '100%',
+                                minHeight: 320,
+                                height: 320,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+
+                            {moodDist.length === 0 ? (
+                                <Typography color="text.secondary">
+                                    No mood data available yet.
+                                </Typography>
+                            ) : (
+                                <ResponsiveContainer
+                                    width="100%"
+                                    height={320}
+                                >
+
+                                    <PieChart>
+
+                                        <Pie
+                                            data={moodDist}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            outerRadius={110}
+                                            label
+                                        >
+
+                                        {moodDist.map((entry, index) => {
+
+                                            const moodItem =
+                                                moodList.find(
+                                                    item =>
+                                                        item.text === entry.name
+                                                )
+
+                                            return (
+                                                <Cell
+                                                    key={index}
+                                                    fill={
+                                                        moodItem
+                                                            ? MOOD_COLORS[moodItem.mood]
+                                                            : '#8884d8'
+                                                    }
+                                                />
+                                            )
+                                        })}
+
+                                    </Pie>
+
+                                    <Tooltip />
+                                    <Legend />
+
+                                </PieChart>
+
+                            </ResponsiveContainer>
+                            )}
+
+                        </Box>
+
+                    </CardContent>
+
+                </Card>
+
+                <Card
+                    sx={{
+                        width: '100%',
+                        borderRadius: 5,
+                        boxShadow: 4,
+                        bgcolor: 'background.paper',
+                        transition: '.2s',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        '&:hover': {
+                            transform: 'translateY(-4px)'
+                        }
+                    }}
+                >
+
+                    <CardContent>
+
+                        <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                            mb={1}
+                        >
+
+                            <Typography
+                                variant="h6"
+                                fontWeight="700"
+                            >
+                                Rating Overview
+                            </Typography>
+
+                            <StarIcon
+                                sx={{
+                                    color: '#ffb300'
+                                }}
+                            />
+
+                        </Stack>
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            mb={3}
+                        >
+                            Distribution of your diary ratings.
+                        </Typography>
+
+                        <Stack spacing={3}>
+
+                            {starDist.map((item) => {
+
+                                const percentage =
+                                    count > 0
+                                        ? (item.value / count) * 100
+                                        : 0
+
+                                return (
+
+                                    <Box key={item.star}>
+
+                                        <Box
+                                            sx={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                mb: .8
+                                            }}
+                                        >
+
+                                            <Typography
+                                                fontWeight={700}
                                             >
-                                                {moodDist.map((entry, index) => {
-                                                    const moodItem = moodList.find(item => item.text === entry.name)
-                                                    return <Cell key={`cell-${index}`} fill={moodItem ? MOOD_COLORS[moodItem.mood] : '#8884d8'} />
-                                                })}
-                                            </Pie>
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </Box>
+                                                {item.star}
+                                            </Typography>
 
-                                {/* Horizontal legend centered below the pie */}
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center', mt: 1 }}>
-                                    {moodDist.length === 0 ? (
-                                        <Typography color="textSecondary">No data</Typography>
-                                    ) : moodDist.map((m) => {
-                                        const moodItem = moodList.find(item => item.text === m.name)
-                                        const color = moodItem ? MOOD_COLORS[moodItem.mood] : '#8884d8'
-                                        return (
-                                            <Box key={m.name} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Box sx={{ width: 14, height: 14, backgroundColor: color, borderRadius: 1 }} />
-                                                <Typography sx={{ fontSize: '.95rem' }}>{m.name}</Typography>
-                                            </Box>
-                                        )
-                                    })}
-                                </Box>
-                            </Box>
+                                            <Typography
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    color: '#ff9800'
+                                                }}
+                                            >
+                                                {item.value}
+                                            </Typography>
 
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
+                                        </Box>
 
-            <Typography variant="h6" fontWeight="600" sx={{ mb: 2, mt: 3 }}>
-                Latest Entry
-            </Typography>
-            <Box sx={{ boxShadow: 2, borderRadius: 2, overflow: 'hidden', width: '100%' }}>
-                <DiaryEntry
-                    entry={user.email && latestEntry ? latestEntry : sampleDiary[0]}
-                    show={true}
-                    id={0}
-                />
+                                        <LinearProgress
+                                            variant="determinate"
+                                            value={percentage}
+                                            sx={{
+                                                height: 12,
+                                                borderRadius: 10,
+                                                bgcolor: 'divider',
+
+                                                '& .MuiLinearProgress-bar': {
+                                                    borderRadius: 10,
+                                                    background: 'linear-gradient(90deg, #ffb300, #ff6f00)'
+                                                }
+                                            }}
+                                        />
+
+                                    </Box>
+                                )
+                            })}
+
+                        </Stack>
+
+                    </CardContent>
+
+                </Card>
+
             </Box>
+            <Typography
+                variant="h5"
+                fontWeight="700"
+                sx={{
+                    mt: 5,
+                    mb: 2
+                }}
+            >
+                Recent Entries
+            </Typography>
+
+            <Box
+                sx={{
+                    width: '100%',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    boxShadow: 4
+                }}
+            >
+
+                {latestEntry ? (
+                    <DiaryEntry
+                        entry={latestEntry}
+                        show={true}
+                        id={0}
+                    />
+                ) : (
+                    <Typography sx={{ p: 3, color: 'text.secondary' }}>
+                        No diary entries yet.
+                    </Typography>
+                )}
+
+            </Box>
+
         </Box>
     )
 }

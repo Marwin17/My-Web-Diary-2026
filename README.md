@@ -1,73 +1,53 @@
-# React + TypeScript + Vite
+<!--
+ * File: README.md
+ * Authors:Marwin Tan, Mary Allison Chen
+ * Created: Jan 28, 2026
+ * Description: Project documentation and instructions.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ -->
+# Love Diary
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A beautiful web-based diary application built with React, TypeScript, and Vite. Keep your memories, emotions, and special moments safe and organized.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 📝 Write and edit diary entries with rich text editor
+- 🎭 Track your mood and emotions
+- ⭐ Rate your memories with stars
+- 📎 Attach photos and files
+- 🗺️ Save and view locations on maps
+- 🔍 Search through your memories
+- 🌙 Dark mode support
+- 🔒 Secure authentication with Supabase
+- 📱 Responsive design for all devices
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React 18, TypeScript, Material-UI
+- **Backend**: Supabase (PostgreSQL, Auth, Storage)
+- **Maps**: Leaflet with React-Leaflet
+- **Rich Text Editor**: TinyMCE
+- **Build Tool**: Vite
+- **Charts**: Recharts
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up your Supabase project and add environment variables
+4. Run the development server: `npm run dev`
+5. Build for production: `npm run build`
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Environment Variables
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Create a `.env` file with:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_key
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## License
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Made with ❤️ for your memories
 ```

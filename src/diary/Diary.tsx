@@ -1,3 +1,11 @@
+/*
+ * File: src/diary/Diary.tsx
+ * Authors: Mary Allison Chen, Marwin Tan, Julia Irene Sia
+ * Created: May 5, 2026
+ * Description: Main diary component with mood types and entry definitions.
+ * Copyright: © 2026 My Web Diary Team. All rights reserved.
+ */
+
 import BlockIcon from '@mui/icons-material/Block';
 import CloudIcon from '@mui/icons-material/Cloud';
 import FavoriteIcon from '@mui/icons-material/Favorite';
