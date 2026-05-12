@@ -6,10 +6,12 @@
  * Copyright: © 2026 My Web Diary Team. All rights reserved.
  */
 
-import { Box, Button, TextField, Typography } from "@mui/material"
+import { Box, Button, TextField, Typography, IconButton, InputAdornment } from "@mui/material"
 import { useNavigate } from "react-router";
 import { useState } from "react";
 import { supabase } from "../supabaseClient";
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
 // Main Register component
 function Register() {
@@ -30,6 +32,8 @@ function Register() {
     const [entry, setEntry] = useState(emptyEntry)
     const [error, setError] = useState(emptyEntry)
     const [otherError, setOtherError] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
+    const [showRetypePassword, setShowRetypePassword] = useState(false)
     const [loading, setLoading] = useState(false)
 
     // Email validation pattern
@@ -139,7 +143,7 @@ function Register() {
                 fullWidth
                 id="password"
                 label="Password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 error={error.password.length > 0}
                 helperText={error.password}
                 variant="outlined"
@@ -147,6 +151,19 @@ function Register() {
                 onChange={event => setEntry({
                     ...entry, password: event.target.value
                 })}
+                InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <IconButton
+                                onClick={() => setShowPassword(!showPassword)}
+                                edge="end"
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                                {showPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                        </InputAdornment>
+                    )
+                }}
                 sx={{
                     mb: 1.5
                 }}
@@ -157,7 +174,7 @@ function Register() {
                 fullWidth
                 id="retypePassword"
                 label="Retype Password"
-                type="password"
+                type={showRetypePassword ? 'text' : 'password'}
                 error={error.retypePassword.length > 0}
                 helperText={error.retypePassword}
                 variant="outlined"
@@ -165,6 +182,19 @@ function Register() {
                 onChange={event => setEntry({
                     ...entry, retypePassword: event.target.value
                 })}
+                InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <IconButton
+                                onClick={() => setShowRetypePassword(!showRetypePassword)}
+                                edge="end"
+                                aria-label={showRetypePassword ? 'Hide confirm password' : 'Show confirm password'}
+                            >
+                                {showRetypePassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                        </InputAdornment>
+                    )
+                }}
                 sx={{
                     mb: 1.5
                 }}

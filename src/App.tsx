@@ -154,6 +154,7 @@ function App() {
 
   // Function to handle user logout
   const logout = async () => {
+    setAnchorElUser(null)
 
     const { error } = await supabase.auth.signOut()
 
@@ -522,13 +523,20 @@ function App() {
                 ⚙️ Profile Settings
               </MenuItem>
 
-              {/* 💖 LOGIN IF NOT LOGGED IN */}
+              {/* 💖 REGISTER / LOGIN IF NOT LOGGED IN */}
               {!user.session && (
-                <MenuItem
-                  onClick={() => handleCloseUserMenu('/login')}
-                >
-                  💖 Login
-                </MenuItem>
+                <>
+                  <MenuItem
+                    onClick={() => handleCloseUserMenu('/register')}
+                  >
+                    💖 Register
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => handleCloseUserMenu('/login')}
+                  >
+                    💖 Login
+                  </MenuItem>
+                </>
               )}
 
               {/* 💖 USER OPTIONS */}
@@ -542,7 +550,10 @@ function App() {
 
                 <MenuItem
                   key="logout"
-                  onClick={() => handleCloseUserMenu('/logout')}
+                  onClick={() => {
+                    setAnchorElUser(null)
+                    logout()
+                  }}
                 >
                   <Typography sx={{ color: '#d32f2f' }}>
                     🚪 Logout

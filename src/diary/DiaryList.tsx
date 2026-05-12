@@ -426,117 +426,113 @@ function DiaryList({ results }: { results?: any[] }) {
     }
 
     return (
-        <>
-            {/* Added a wrapper Box to match the margin (m: 1.5) of the diary entries below */}
-            <Box sx={{ width: '100%', mx: 1.5, mt: 3.5, mb: 1.5 }}>
-                <Searchbar
-                    params={searchParams}
-                    onChange={setSearchParams}
-                    onSearch={handleSearch}
-                    onClear={handleClearFilters}
-                />
-            </Box>
-
-            {/* Favorites Section */}
-            {favorites.length > 0 && (
-                <Paper
-                    elevation={5}
-                    sx={{
-                        p: 2.5,
-                        mx: 1.5,
-                        mb: 3,
-                        borderRadius: 4,
-                        bgcolor: 'background.paper',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        overflow: 'hidden',
-                        position: 'relative',
-                        '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '3px',
-                            background: 'linear-gradient(90deg, #e91e63, #ff80ab, #e91e63)'
-                        }
-                    }}
-                >
-                    <Typography
+        <Searchbar
+            params={searchParams}
+            onChange={setSearchParams}
+            onSearch={handleSearch}
+            onClear={handleClearFilters}
+        >
+            <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', px: 1.5, pt: 2, pb: 3 }}>
+                {/* Favorites Section */}
+                {favorites.length > 0 && (
+                    <Paper
+                        elevation={5}
                         sx={{
-                            fontWeight: 'bold',
-                            fontSize: '1.1rem',
-                            color: '#e91e63',
-                            mb: 2,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1
+                            p: 2.5,
+                            mb: 3,
+                            borderRadius: 4,
+                            bgcolor: 'background.paper',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            '&::before': {
+                                content: '""',
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: '3px',
+                                background: 'linear-gradient(90deg, #e91e63, #ff80ab, #e91e63)'
+                            }
                         }}
                     >
-                        <FavoriteIcon sx={{ fontSize: '1.3rem' }} />
-                        Favorite Memories ({favorites.length})
-                    </Typography>
+                        <Typography
+                            sx={{
+                                fontWeight: 'bold',
+                                fontSize: '1.1rem',
+                                color: '#e91e63',
+                                mb: 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1
+                            }}
+                        >
+                            <FavoriteIcon sx={{ fontSize: '1.3rem' }} />
+                            Favorite Memories ({favorites.length})
+                        </Typography>
 
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {favoritePageEntries.map((entry, index) => (
-                            <DiaryEntry
-                                key={`favorite-${favoritePage}-${index}`}
-                                entry={entry}
-                                id={index}
-                                favorite={true}
-                                onFavorite={toggleFavorite}
-                            />
-                        ))}
-                    </Box>
-
-                    {favoritePageCount > 1 && (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                            <Pagination
-                                count={favoritePageCount}
-                                page={favoritePage}
-                                onChange={handleFavoritePageChange}
-                                color="primary"
-                            />
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            {favoritePageEntries.map((entry, index) => (
+                                <DiaryEntry
+                                    key={`favorite-${favoritePage}-${index}`}
+                                    entry={entry}
+                                    id={index}
+                                    favorite={true}
+                                    onFavorite={toggleFavorite}
+                                />
+                            ))}
                         </Box>
-                    )}
-                </Paper>
-            )}
 
-            {/* All Entries */}
-            <Typography
-                sx={{
-                    px: 2,
-                    mt: 3,
-                    mb: 1.5,
-                    fontSize: '1rem',
-                    fontWeight: 'bold',
-                    color: '#999'
-                }}
-            >
-                All Entries ({diaryList.filter(item => !favorites.includes(item.id ?? '')).length})
-            </Typography>
+                        {favoritePageCount > 1 && (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                                <Pagination
+                                    count={favoritePageCount}
+                                    page={favoritePage}
+                                    onChange={handleFavoritePageChange}
+                                    color="primary"
+                                />
+                            </Box>
+                        )}
+                    </Paper>
+                )}
 
-            {pageEntries.map((entry, index) => (
-                <DiaryEntry
-                    entry={entry}
-                    id={(currentPage - 1) * entriesPerPage + index}
-                    key={`${currentPage}-${index}`}
-                    favorite={favorites.includes(entry.id ?? '')}
-                    onFavorite={toggleFavorite}
-                />
-            ))}
+                {/* All Entries */}
+                <Typography
+                    sx={{
+                        px: 1,
+                        mt: 3,
+                        mb: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        color: '#999'
+                    }}
+                >
+                    All Entries ({diaryList.filter(item => !favorites.includes(item.id ?? '')).length})
+                </Typography>
 
-            {totalPages > 1 && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 4 }}>
-                    <Pagination
-                        count={totalPages}
-                        page={currentPage}
-                        onChange={handlePageChange}
-                        color="primary"
+                {pageEntries.map((entry, index) => (
+                    <DiaryEntry
+                        entry={entry}
+                        id={(currentPage - 1) * entriesPerPage + index}
+                        key={`${currentPage}-${index}`}
+                        favorite={favorites.includes(entry.id ?? '')}
+                        onFavorite={toggleFavorite}
                     />
-                </Box>
-            )}
-        </>
+                ))}
+
+                {totalPages > 1 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 4 }}>
+                        <Pagination
+                            count={totalPages}
+                            page={currentPage}
+                            onChange={handlePageChange}
+                            color="primary"
+                        />
+                    </Box>
+                )}
+            </Box>
+        </Searchbar>
     )
 }
 

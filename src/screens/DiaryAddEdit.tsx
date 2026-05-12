@@ -15,6 +15,7 @@ import {
     Chip,
     Divider,
     FormControl,
+    FormControlLabel,
     IconButton,
     InputAdornment,
     InputLabel,
@@ -22,6 +23,7 @@ import {
     Paper,
     Select,
     Stack,
+    Switch,
     TextField,
     Tooltip,
     Typography,
@@ -65,6 +67,7 @@ import SaveIcon from "@mui/icons-material/Save"
 import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import MyLocationIcon from "@mui/icons-material/MyLocation"
 import FavoriteIcon from "@mui/icons-material/Favorite"
+import EditCalendarIcon from "@mui/icons-material/EditCalendar"
 
 // Main DiaryAddEdit component
 function DiaryAddEdit() {
@@ -81,6 +84,11 @@ function DiaryAddEdit() {
 
     // Location hook
     const location = useLocation()
+
+    // Add these states near your other useState hooks
+    const [openDateDialog, setOpenDateDialog] = useState(false)
+    const [manualDateTime, setManualDateTime] = useState('')
+    const [manualDateToggle, setManualDateToggle] = useState(false)
 
     // Determine if creating new entry
     const isNew = id === undefined
@@ -308,9 +316,9 @@ function DiaryAddEdit() {
     // --- LOCATION HELPERS ---
     // NOTE: changed so the visible innerHTML only shows the coordinates (label is stored in data-name only)
     function createLocationHtml(lat: number, lng: number, name?: string) {
-    const safeName = name ? String(name).replace(/"/g, '&quot;') : ''
+        const safeName = name ? String(name).replace(/"/g, '&quot;') : ''
 
-    return `
+        return `
         <div 
             class="diary-loc"
             data-lat="${lat}"
@@ -328,16 +336,15 @@ function DiaryAddEdit() {
                 width:fit-content;
             "
         >
-            ${
-                safeName
-                    ? `<span style="
+            ${safeName
+                ? `<span style="
                         font-weight:bold;
                         color:#e91e63;
                         font-size:14px;
                     ">
                         📍 ${safeName}
                     </span>`
-                    : ''
+                : ''
             }
 
             <span style="
@@ -348,7 +355,7 @@ function DiaryAddEdit() {
             </span>
         </div>
     `
-}
+    }
 
     function promptForLocationName(defaultName = '') {
         try {
@@ -813,6 +820,33 @@ function DiaryAddEdit() {
         })
     }
 
+    function applyManualDateTime() {
+
+        const date = new Date(manualDateTime + ':00')
+
+        if (isNaN(date.getTime())) {
+            setSnackbarState({
+                open: true,
+                message: 'Invalid date and time',
+                severity: 'error'
+            })
+            return
+        }
+
+        setEntry({
+            ...entry,
+            date
+        })
+
+        setSnackbarState({
+            open: true,
+            message: 'Date & time updated',
+            severity: 'success'
+        })
+
+        setOpenDateDialog(false)
+    }
+
     function getCurrentLocation() {
 
         navigator.geolocation.getCurrentPosition(
@@ -921,19 +955,62 @@ function DiaryAddEdit() {
 
                     {/* TOP SECTION */}
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
-                        <TextField fullWidth id="date" label="Date & Time" variant="outlined" value={format(entry.date, "yyyy-MM-dd'T'HH:mm")} type="datetime-local" onChange={event => {
-                            const date = new Date(event.target.value + ':00')
-                            if (isNaN(date.getTime())) return
-                            setEntry({ ...entry, date: date })
-                        }} InputProps={{
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <Tooltip title="Set current time">
-                                        <IconButton onClick={setNowDateTime}><CalendarMonthIcon /></IconButton>
-                                    </Tooltip>
-                                </InputAdornment>
-                            )
-                        }} />
+                        <Box sx={{ width: '100%' }}>
+                        <TextField
+                            fullWidth
+                            id="date"
+                            label="Date & Time"
+                            variant="outlined"
+                            value={format(entry.date, "yyyy-MM-dd'T'HH:mm")}
+                            type="datetime-local"
+                            onChange={event => {
+                                const date = new Date(event.target.value + ':00')
+                                if (isNaN(date.getTime())) return
+                                setEntry({
+                                    ...entry,
+                                    date
+                                })
+                            }}
+                            InputLabelProps={{
+                                shrink: true
+                            }}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <Tooltip title="Set current time">
+                                            <IconButton onClick={setNowDateTime}>
+                                                <CalendarMonthIcon />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+
+                        <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={manualDateToggle}
+                                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setManualDateToggle(event.target.checked)}
+                                        color="primary"
+                                    />
+                                }
+                                label="Show manual date/time chooser"
+                            />
+                            <Button
+                                variant={manualDateToggle ? 'contained' : 'outlined'}
+                                onClick={() => {
+                                    setManualDateTime(format(entry.date, "yyyy-MM-dd'T'HH:mm"))
+                                    setOpenDateDialog(true)
+                                    setManualDateToggle(true)
+                                }}
+                                startIcon={<EditCalendarIcon />}
+                            >
+                                Choose date & time
+                            </Button>
+                        </Box>
+                    </Box>
 
                         <FormControl fullWidth>
                             <InputLabel id="mood-label">Mood</InputLabel>
@@ -1081,6 +1158,28 @@ function DiaryAddEdit() {
                 <DialogActions>
                     <Button onClick={() => setOpenDelete(false)}>Cancel</Button>
                     <Button color="error" variant="contained" startIcon={<DeleteIcon />} onClick={async (event) => { (event.currentTarget as HTMLButtonElement).blur(); setOpenDelete(false); await deleteEntry(); }}>Delete Entry</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Manual Date & Time Dialog */}
+            <Dialog open={openDateDialog} onClose={() => setOpenDateDialog(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Set Date & Time Manually</DialogTitle>
+                <DialogContent sx={{ pt: 2 }}>
+                    <TextField
+                        fullWidth
+                        label="Date & Time"
+                        type="datetime-local"
+                        value={manualDateTime}
+                        onChange={(e) => setManualDateTime(e.target.value)}
+                        InputLabelProps={{
+                            shrink: true,
+                        }}
+                        helperText="Select the exact date and time for this memory"
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDateDialog(false)}>Cancel</Button>
+                    <Button variant="contained" onClick={applyManualDateTime}>Apply</Button>
                 </DialogActions>
             </Dialog>
 
