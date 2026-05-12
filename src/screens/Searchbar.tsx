@@ -60,10 +60,8 @@ export default function Searchbar({ params, onChange, onSearch, onClear, childre
     const activeFieldset = isDark ? 'rgba(233,30,99,0.35)' : 'rgba(233,30,99,0.15)'
 
     useEffect(() => {
-        // Auto-open drawer on large screens
-        if (isLargeScreen) {
-            setOpenMore(true)
-        }
+        // Auto-open on large screens and auto-hide on small screens
+        setOpenMore(isLargeScreen)
     }, [isLargeScreen])
 
     const moodListExtra = [
@@ -104,12 +102,12 @@ export default function Searchbar({ params, onChange, onSearch, onClear, childre
                     width: '100%',
                     maxWidth: 760,
                     mx: 'auto',
-                    mt: 1,
+                    mt: 9,
                     mb: 2,
                     p: 2,
                     borderRadius: 5,
                     position: 'sticky',
-                    top: 10,
+                    top: 72,
                     zIndex: 10,
 
                             background: searchPaperBg,
@@ -287,8 +285,10 @@ export default function Searchbar({ params, onChange, onSearch, onClear, childre
                         '& .MuiDrawer-paper': {
                             position: isLargeScreen ? 'relative' : 'fixed',
 
-                            width: 360,
-                            height: isLargeScreen ? 'auto' : '100vh',
+                            width: isLargeScreen ? 360 : '50vw',
+                            maxWidth: isLargeScreen ? 360 : 420,
+                            top: isLargeScreen ? undefined : { xs: '56px', sm: '64px' },
+                            height: isLargeScreen ? 'auto' : { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)' },
 
                             borderLeft: 'none',
 

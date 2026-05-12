@@ -15,7 +15,6 @@ import {
     Chip,
     Divider,
     FormControl,
-    FormControlLabel,
     IconButton,
     InputAdornment,
     InputLabel,
@@ -23,7 +22,6 @@ import {
     Paper,
     Select,
     Stack,
-    Switch,
     TextField,
     Tooltip,
     Typography,
@@ -88,7 +86,6 @@ function DiaryAddEdit() {
     // Add these states near your other useState hooks
     const [openDateDialog, setOpenDateDialog] = useState(false)
     const [manualDateTime, setManualDateTime] = useState('')
-    const [manualDateToggle, setManualDateToggle] = useState(false)
 
     // Determine if creating new entry
     const isNew = id === undefined
@@ -988,22 +985,11 @@ function DiaryAddEdit() {
                         />
 
                         <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={manualDateToggle}
-                                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setManualDateToggle(event.target.checked)}
-                                        color="primary"
-                                    />
-                                }
-                                label="Show manual date/time chooser"
-                            />
                             <Button
-                                variant={manualDateToggle ? 'contained' : 'outlined'}
+                                variant="contained"
                                 onClick={() => {
                                     setManualDateTime(format(entry.date, "yyyy-MM-dd'T'HH:mm"))
                                     setOpenDateDialog(true)
-                                    setManualDateToggle(true)
                                 }}
                                 startIcon={<EditCalendarIcon />}
                             >
