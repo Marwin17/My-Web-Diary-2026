@@ -336,7 +336,9 @@ function App() {
             sx={{
               width: 280,
               height: '100%',
-              background: 'linear-gradient(180deg, #ffe4ec 0%, #fff 100%)',
+              background: dark 
+                ? 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 100%)'
+                : 'linear-gradient(180deg, #ffe4ec 0%, #fff 100%)',
               p: 2
             }}
             role="presentation"
@@ -344,10 +346,10 @@ function App() {
 
             {/* Header inside drawer */}
             <Box sx={{ textAlign: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#d81b60' }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: dark ? '#ff69b4' : '#d81b60' }}>
                 💕 Love Diary
               </Typography>
-              <Typography variant="caption" sx={{ color: 'gray' }}>
+              <Typography variant="caption" sx={{ color: dark ? '#b0b0b0' : 'gray' }}>
                 Your memories, your emotions
               </Typography>
             </Box>
@@ -363,8 +365,9 @@ function App() {
                     sx={{
                       borderRadius: 2,
                       transition: '0.2s',
+                      color: dark ? '#e0e0e0' : 'inherit',
                       '&:hover': {
-                        backgroundColor: '#ffd1dc',
+                        backgroundColor: dark ? '#404040' : '#ffd1dc',
                         transform: 'scale(1.02)',
                       }
                     }}
@@ -383,7 +386,7 @@ function App() {
 
             {/* Footer inside drawer */}
             <Box sx={{ position: 'absolute', bottom: 20, width: '90%', textAlign: 'center' }}>
-              <Typography variant="caption" sx={{ color: 'gray' }}>
+              <Typography variant="caption" sx={{ color: dark ? '#808080' : 'gray' }}>
                 Made with ❤️ for your memories
               </Typography>
             </Box>
